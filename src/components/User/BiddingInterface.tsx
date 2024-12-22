@@ -553,6 +553,29 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
           </div>
         )}
       </div>
+      <div style={{
+        backgroundColor: '#fff',
+        padding: '20px',
+        borderRadius: '8px',
+        border: '1px solid #dee2e6',
+        marginBottom: '20px',
+        textAlign: 'center'
+      }}>
+        <h2 style={{
+          color: '#212529',
+          marginBottom: '20px',
+          fontSize: '24px'
+        }}>
+          Bidding Interface
+        </h2>
+        <div style={{
+          color: '#6c757d',
+          fontSize: '16px',
+          marginBottom: '20px'
+        }}>
+          Playing as: <span style={{ color: '#28a745', fontWeight: 500 }}>{playerNameState}</span>
+        </div>
+      </div>
       {/* Round History and Statistics */}
       {gameState.roundHistory.length > 0 && (
         <div style={{ marginTop: '20px' }}>
