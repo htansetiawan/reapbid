@@ -170,9 +170,6 @@ const PlayerStatsChart: React.FC<PlayerStatsChartProps> = ({ playerName, roundHi
   return (
     <div style={{ 
       width: '100%', 
-      display: 'flex', 
-      flexDirection: 'column', 
-      gap: '20px', 
       marginTop: '20px',
       backgroundColor: '#fff',
       padding: '20px',
@@ -183,16 +180,44 @@ const PlayerStatsChart: React.FC<PlayerStatsChartProps> = ({ playerName, roundHi
         Statistics for {playerName} vs Rivals
       </h3>
       
-      <div style={{ height: '300px' }}>
-        <Line options={bidsOptions} data={bidsData} />
-      </div>
-      
-      <div style={{ height: '300px' }}>
-        <Line options={marketShareOptions} data={marketShareData} />
-      </div>
-      
-      <div style={{ height: '300px' }}>
-        <Line options={profitsOptions} data={profitsData} />
+      <div style={{ 
+        display: 'flex', 
+        gap: '20px', 
+        overflowX: 'auto',
+        padding: '10px 0'
+      }}>
+        <div style={{ 
+          flex: '1',
+          minWidth: '400px',
+          height: '400px',
+          padding: '10px',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '4px'
+        }}>
+          <Line options={bidsOptions} data={bidsData} />
+        </div>
+        
+        <div style={{ 
+          flex: '1',
+          minWidth: '400px',
+          height: '400px',
+          padding: '10px',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '4px'
+        }}>
+          <Line options={marketShareOptions} data={marketShareData} />
+        </div>
+        
+        <div style={{ 
+          flex: '1',
+          minWidth: '400px',
+          height: '400px',
+          padding: '10px',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '4px'
+        }}>
+          <Line options={profitsOptions} data={profitsData} />
+        </div>
       </div>
     </div>
   );
