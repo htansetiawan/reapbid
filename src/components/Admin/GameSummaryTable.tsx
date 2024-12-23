@@ -339,11 +339,22 @@ const GameSummaryTable: React.FC = () => {
       </table>
 
       {selectedPlayer && (
-        <PlayerStatsChart
-          playerName={selectedPlayer}
-          roundHistory={gameState.roundHistory || []}
-          rivals={gameState.rivalries[selectedPlayer] || []}
-        />
+        <>
+          {console.log('GameSummaryTable - Rivalries Debug:', {
+            gameState,
+            selectedPlayer,
+            rivalries: gameState?.rivalries,
+            hasRivalries: gameState?.rivalries && selectedPlayer in gameState.rivalries,
+            playerRivals: gameState?.rivalries?.[selectedPlayer]
+          })}
+          <PlayerStatsChart
+            playerName={selectedPlayer}
+            roundHistory={gameState.roundHistory || []}
+            rivals={(gameState?.rivalries && selectedPlayer in gameState.rivalries) 
+              ? gameState.rivalries[selectedPlayer] 
+              : []}
+          />
+        </>
       )}
 
       {/* Pagination controls */}

@@ -126,7 +126,11 @@ export class FirebaseStorageAdapter implements StorageAdapter {
 
   async updateRivalries(rivalries: Record<string, string[]>): Promise<void> {
     try {
-      await update(this.gameRef, { rivalries });
+      console.log('FirebaseStorageAdapter - Updating rivalries:', rivalries);
+      const updates = {
+        'rivalries': rivalries  // Use explicit path to update only rivalries
+      };
+      await update(this.gameRef, updates);
     } catch (error) {
       console.error('Error updating rivalries:', error);
       throw error;

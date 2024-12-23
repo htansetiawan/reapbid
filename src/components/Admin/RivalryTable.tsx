@@ -40,20 +40,32 @@ const RivalryTable: React.FC = () => {
   const handleUpdateRival = (player1: string, player2: string, checked: boolean) => {
     const currentRivalries = { ...(gameState?.rivalries || {}) };
     
-    if (!currentRivalries[player1]) currentRivalries[player1] = [];
-    if (!currentRivalries[player2]) currentRivalries[player2] = [];
+    // Ensure all players have an array, even if empty
+    Object.keys(gameState?.players || {}).forEach(player => {
+      if (!currentRivalries[player]) {
+        currentRivalries[player] = [];
+      }
+    });
     
     if (checked) {
       if (!currentRivalries[player1].includes(player2)) {
-        currentRivalries[player1].push(player2);
+        currentRivalries[player1] = [...currentRivalries[player1], player2];
       }
       if (!currentRivalries[player2].includes(player1)) {
-        currentRivalries[player2].push(player1);
+        currentRivalries[player2] = [...currentRivalries[player2], player1];
       }
     } else {
       currentRivalries[player1] = currentRivalries[player1].filter(p => p !== player2);
       currentRivalries[player2] = currentRivalries[player2].filter(p => p !== player1);
     }
+    
+    console.log('RivalryTable - Updating rivalries:', {
+      currentRivalries,
+      player1,
+      player2,
+      checked,
+      beforeUpdate: gameState?.rivalries
+    });
     
     updateRivalries(currentRivalries);
   };
@@ -62,14 +74,13 @@ const RivalryTable: React.FC = () => {
   const rivalries = gameState?.rivalries || {};
 
   return (
-    <div style={{ padding: '20px' }}>
+    <div>
       <div style={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center',
         marginBottom: '20px'
       }}>
-        <h2 style={{ margin: 0 }}>Rivalry Assignment</h2>
         <button 
           onClick={handleAutoAssignRivals}
           style={{
