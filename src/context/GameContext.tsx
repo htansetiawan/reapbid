@@ -66,7 +66,7 @@ const initialGameState: GameState = {
   hasGameStarted: false,
   isActive: false,
   isEnded: false,
-  currentRound: 0,
+  currentRound: 1,
   totalRounds: 5,
   roundTimeLimit: 60,
   roundStartTime: null,
@@ -149,7 +149,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...initialGameState,
       ...config,
       hasGameStarted: true,
-      isActive: true,
+      isActive: false,
+      currentRound: 1,
     };
     await storage.updateGameState(newState);
   };
@@ -158,7 +159,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const newState = {
       ...gameState,
       isActive: true,
-      currentRound: gameState.currentRound + 1,
       roundStartTime: Date.now(),
       roundBids: {},
       players: Object.fromEntries(
@@ -219,7 +219,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Create round result
     const roundResult: RoundResult = {
-      round: gameState?.currentRound ?? 0,
+      round: gameState?.currentRound ?? 1,
       bids: roundBids,
       marketShares,
       profits,
@@ -231,6 +231,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...gameState,
       isActive: false,
       roundStartTime: null,
+      currentRound: (gameState?.currentRound ?? 1) + 1,
       roundHistory: [...(gameState?.roundHistory || []), roundResult]
     };
 
