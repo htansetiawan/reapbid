@@ -15,21 +15,21 @@ interface StatBoxProps {
 const StatBox: React.FC<StatBoxProps> = ({ label, value }) => (
   <div style={{
     textAlign: 'center',
-    padding: '15px',
+    padding: '16px',
     backgroundColor: '#fff',
     borderRadius: '4px',
-    border: '1px solid #dee2e6'
+    border: '1px solid rgba(0,0,0,0.12)'
   }}>
     <div style={{
       fontSize: '14px',
-      color: '#6c757d',
-      marginBottom: '5px'
+      color: 'rgba(0,0,0,0.6)',
+      marginBottom: '8px'
     }}>
       {label}
     </div>
     <div style={{
       fontSize: '20px',
-      color: '#212529',
+      color: 'rgba(0,0,0,0.87)',
       fontWeight: 500
     }}>
       {value}
@@ -48,6 +48,12 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
 
   const isGameEnded = gameState?.isEnded;
   const isFinalRound = (gameState?.currentRound ?? 0) === (gameState?.totalRounds ?? 0);
+
+  const getDisplayRound = () => {
+    const currentRound = gameState?.currentRound ?? 0;
+    const totalRounds = gameState?.totalRounds ?? 0;
+    return `${Math.min(currentRound, totalRounds)}/${totalRounds}`;
+  };
 
   // Track game state changes
   useEffect(() => {
@@ -157,9 +163,11 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
         }}>
           <div style={{
             backgroundColor: '#f8f9fa',
+            color: '#721c24',
             padding: '30px',
             borderRadius: '8px',
-            border: '1px solid #dee2e6'
+            marginBottom: '20px',
+            border: '1px solid #f5c6cb'
           }}>
             <h2 style={{
               color: '#212529',
@@ -194,79 +202,44 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
 
     return (
       <div style={{ 
-        padding: '40px',
-        maxWidth: '400px',
+        padding: '16px',
+        maxWidth: '800px',
         margin: '0 auto',
-        textAlign: 'center'
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px'
       }}>
-        <h2 style={{
-          color: '#212529',
-          marginBottom: '30px',
-          fontSize: '24px'
+        <div style={{
+          backgroundColor: '#fff',
+          padding: '24px',
+          borderRadius: '8px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          border: '1px solid rgba(0,0,0,0.12)',
+          textAlign: 'center',
+          width: '100%'
         }}>
-          Join the Game
-        </h2>
-        {error && (
           <div style={{
-            backgroundColor: '#f8d7da',
-            color: '#721c24',
-            padding: '12px',
-            borderRadius: '4px',
-            marginBottom: '20px',
-            border: '1px solid #f5c6cb'
+            fontSize: '20px',
+            color: 'rgba(0,0,0,0.87)',
+            marginBottom: '16px',
+            fontWeight: 500
           }}>
-            {error}
+            Joining Game...
           </div>
-        )}
-        <div style={{
-          marginBottom: '20px',
-          textAlign: 'left'
-        }}>
-          <label style={{
-            display: 'block',
-            marginBottom: '8px',
-            color: '#495057',
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            backgroundColor: '#ffc107',
+            color: 'rgba(0,0,0,0.87)',
+            padding: '4px 12px',
+            borderRadius: '16px',
+            fontSize: '14px',
             fontWeight: 500
           }}>
-            Enter your name:
-          </label>
-          <input
-            type="text"
-            value={playerName}
-            onChange={(e) => {}}
-            placeholder="Your name"
-            style={{
-              width: '100%',
-              padding: '10px',
-              borderRadius: '4px',
-              border: '1px solid #ced4da',
-              fontSize: '16px'
-            }}
-            disabled
-          />
-        </div>
-        <button
-          onClick={handleRegister}
-          style={{
-            width: '100%',
-            padding: '12px',
-            backgroundColor: '#28a745',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '16px',
-            fontWeight: 500
-          }}
-        >
-          Join Game
-        </button>
-        <div style={{
-          marginTop: '15px',
-          color: '#6c757d',
-          fontSize: '14px'
-        }}>
-          {Object.keys(gameState?.players || {}).length} / {gameState?.maxPlayers ?? 0} players joined
+            <span>Please wait</span>
+          </div>
         </div>
       </div>
     );
@@ -412,101 +385,417 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
     return stats;
   };
 
-  if (isGameEnded) {
-    const stats = {
-      profit: 0,
-      marketShare: 0,
-      bestRound: 0,
-      currentBid: 0
-    };
-
-    // Calculate from round history
+  const getTotalProfit = () => {
     const roundHistory = gameState?.roundHistory || [];
     const playerRoundData = roundHistory.map(round => ({
       profit: round.profits?.[playerName] || 0,
-      marketShare: round.marketShares?.[playerName] || 0
     }));
 
     // Calculate total profit
     const totalProfit = playerRoundData.reduce((sum, round) => sum + round.profit, 0);
+
+    return totalProfit;
+  };
+
+  const getAverageMarketShare = () => {
+    const roundHistory = gameState?.roundHistory || [];
+    const playerRoundData = roundHistory.map(round => ({
+      marketShare: round.marketShares?.[playerName] || 0
+    }));
 
     // Calculate average market share
     const avgMarketShare = playerRoundData.length > 0
       ? playerRoundData.reduce((sum, round) => sum + round.marketShare, 0) / playerRoundData.length
       : 0;
 
+    return avgMarketShare;
+  };
+
+  const getBestRound = () => {
+    const roundHistory = gameState?.roundHistory || [];
+    const playerRoundData = roundHistory.map((round, index) => ({
+      profit: round.profits?.[playerName] || 0,
+      roundNumber: index + 1
+    }));
+
     // Find best round (highest profit)
-    let bestRound = 0;
-    let bestProfit = -Infinity;
-    playerRoundData.forEach((round, index) => {
-      if (round.profit > bestProfit) {
-        bestProfit = round.profit;
-        bestRound = index + 1;
-      }
-    });
+    return playerRoundData.reduce((best, current) => {
+      return current.profit > best.profit ? current : best;
+    }, { profit: -Infinity, roundNumber: 0 });
+  };
 
-    stats.profit = totalProfit;
-    stats.marketShare = avgMarketShare;
-    stats.bestRound = bestRound || 0;
-    stats.currentBid = gameState?.roundBids?.[playerName] || 0;
-
+  if (gameState?.isEnded || (gameState?.currentRound ?? 0) > (gameState?.totalRounds ?? 0)) {
     return (
       <div style={{
-        padding: '40px',
+        padding: '16px',
         maxWidth: '800px',
         margin: '0 auto'
       }}>
         <div style={{
-          backgroundColor: '#f8f9fa',
-          padding: '30px',
-          borderRadius: '8px',
-          border: '1px solid #dee2e6',
-          marginBottom: '20px',
-          textAlign: 'center'
-        }}>
-          <h2 style={{
-            color: '#212529',
-            marginBottom: '20px',
-            fontSize: '24px'
-          }}>
-            Game Over
-          </h2>
-          <p style={{
-            color: '#6c757d',
-            marginBottom: '30px',
-            fontSize: '16px'
-          }}>
-            The game has ended. Here are your final statistics:
-          </p>
-        </div>
-
-        <div style={{
           backgroundColor: '#fff',
-          padding: '30px',
+          padding: '24px',
           borderRadius: '8px',
-          border: '1px solid #dee2e6'
+          border: '1px solid rgba(0,0,0,0.12)',
+          marginBottom: '24px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}>
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(2, 1fr)',
-            gap: '20px'
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '24px',
+            gap: '12px'
           }}>
-            <StatBox
-              label="Total Profit"
-              value={`$${stats.profit.toFixed(2)}`}
-            />
-            <StatBox
-              label="Average Market Share"
-              value={`${(stats.marketShare * 100).toFixed(1)}%`}
-            />
-            <StatBox
-              label="Best Round"
-              value={stats.bestRound.toString()}
-            />
-            <StatBox
-              label="Total Rounds"
-              value={(gameState?.totalRounds ?? 0).toString()}
-            />
+            <div style={{
+              fontSize: '24px',
+              fontWeight: 600,
+              color: 'rgba(0,0,0,0.87)',
+              textTransform: 'uppercase',
+              letterSpacing: '1px'
+            }}>
+              Bidding is Over
+            </div>
+            <div style={{
+              backgroundColor: '#2e7d32',
+              color: 'white',
+              padding: '4px 12px',
+              borderRadius: '16px',
+              fontSize: '14px',
+              fontWeight: 500
+            }}>
+              Final Results
+            </div>
+          </div>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: '24px',
+            marginBottom: '32px'
+          }}>
+            <div style={{
+              backgroundColor: 'rgba(0,0,0,0.02)',
+              padding: '16px',
+              borderRadius: '8px',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                fontSize: '14px',
+                color: 'rgba(0,0,0,0.6)',
+                marginBottom: '8px',
+                fontWeight: 500
+              }}>
+                Total Profit
+              </div>
+              <div style={{
+                fontSize: '24px',
+                fontWeight: 600,
+                color: getTotalProfit() >= 0 ? '#2e7d32' : '#d32f2f'
+              }}>
+                ${getTotalProfit().toFixed(2)}
+              </div>
+            </div>
+
+            <div style={{
+              backgroundColor: 'rgba(0,0,0,0.02)',
+              padding: '16px',
+              borderRadius: '8px',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                fontSize: '14px',
+                color: 'rgba(0,0,0,0.6)',
+                marginBottom: '8px',
+                fontWeight: 500
+              }}>
+                Average Market Share
+              </div>
+              <div style={{
+                fontSize: '24px',
+                fontWeight: 600,
+                color: 'rgba(0,0,0,0.87)'
+              }}>
+                {(getAverageMarketShare() * 100).toFixed(1)}%
+              </div>
+            </div>
+
+            <div style={{
+              backgroundColor: 'rgba(0,0,0,0.02)',
+              padding: '16px',
+              borderRadius: '8px',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                fontSize: '14px',
+                color: 'rgba(0,0,0,0.6)',
+                marginBottom: '8px',
+                fontWeight: 500
+              }}>
+                Best Round
+              </div>
+              <div style={{
+                fontSize: '24px',
+                fontWeight: 600,
+                color: 'rgba(0,0,0,0.87)'
+              }}>
+                #{getBestRound().roundNumber}
+              </div>
+              <div style={{
+                fontSize: '14px',
+                color: getBestRound().profit >= 0 ? '#2e7d32' : '#d32f2f',
+                marginTop: '4px'
+              }}>
+                ${getBestRound().profit.toFixed(2)}
+              </div>
+            </div>
+
+            <div style={{
+              backgroundColor: 'rgba(0,0,0,0.02)',
+              padding: '16px',
+              borderRadius: '8px',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                fontSize: '14px',
+                color: 'rgba(0,0,0,0.6)',
+                marginBottom: '8px',
+                fontWeight: 500
+              }}>
+                Total Rounds
+              </div>
+              <div style={{
+                fontSize: '24px',
+                fontWeight: 600,
+                color: 'rgba(0,0,0,0.87)'
+              }}>
+                {gameState.totalRounds}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Round History Table */}
+        <div style={{
+          backgroundColor: '#fff',
+          padding: '24px',
+          borderRadius: '8px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          border: '1px solid rgba(0,0,0,0.12)'
+        }}>
+          <h3 style={{ 
+            fontSize: '18px',
+            marginBottom: '24px',
+            color: 'rgba(0,0,0,0.87)',
+            fontWeight: 600
+          }}>
+            Round History
+          </h3>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ 
+              width: '100%',
+              borderCollapse: 'collapse',
+              fontSize: '14px'
+            }}>
+              <thead>
+                <tr>
+                  <th style={{ 
+                    padding: '12px',
+                    borderBottom: '2px solid rgba(0,0,0,0.12)',
+                    textAlign: 'left',
+                    whiteSpace: 'nowrap',
+                    fontSize: '14px'
+                  }}>
+                    #
+                  </th>
+                  <th style={{ 
+                    padding: '12px',
+                    borderBottom: '2px solid rgba(0,0,0,0.12)',
+                    textAlign: 'left',
+                    whiteSpace: 'nowrap',
+                    fontSize: '14px'
+                  }}>
+                    Rivals
+                  </th>
+                  <th style={{ 
+                    padding: '12px',
+                    borderBottom: '2px solid rgba(0,0,0,0.12)',
+                    textAlign: 'right',
+                    whiteSpace: 'nowrap',
+                    fontSize: '14px'
+                  }}>
+                    Bid
+                  </th>
+                  <th style={{ 
+                    padding: '12px',
+                    borderBottom: '2px solid rgba(0,0,0,0.12)',
+                    textAlign: 'right',
+                    whiteSpace: 'nowrap',
+                    fontSize: '14px'
+                  }}>
+                    Profit
+                  </th>
+                  <th style={{ 
+                    padding: '12px',
+                    borderBottom: '2px solid rgba(0,0,0,0.12)',
+                    textAlign: 'right',
+                    whiteSpace: 'nowrap',
+                    fontSize: '14px'
+                  }}>
+                    %
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {getRivalStats().map((roundStat) => (
+                  <tr key={roundStat.round}>
+                    <td style={{ 
+                      padding: '12px',
+                      borderBottom: '1px solid rgba(0,0,0,0.12)',
+                      textAlign: 'left'
+                    }}>
+                      {Math.min(roundStat.round, gameState?.totalRounds ?? 0)}
+                    </td>
+                    <td style={{ 
+                      padding: '12px',
+                      borderBottom: '1px solid rgba(0,0,0,0.12)',
+                      fontSize: '13px'
+                    }}>
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px'
+                      }}>
+                        {roundStat.rivals.map(rival => (
+                          <div key={rival.name} style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px',
+                            padding: '8px',
+                            backgroundColor: 'rgba(0,0,0,0.02)',
+                            borderRadius: '4px'
+                          }}>
+                            <div style={{
+                              fontWeight: 500,
+                              color: 'rgba(0,0,0,0.87)',
+                              marginBottom: '4px'
+                            }}>
+                              {rival.name}
+                            </div>
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(3, 1fr)',
+                              gap: '8px',
+                              fontSize: '12px',
+                              color: 'rgba(0,0,0,0.6)'
+                            }}>
+                              <div>
+                                <div style={{ marginBottom: '2px', fontWeight: 500 }}>Bid</div>
+                                <div>${rival.bid}</div>
+                              </div>
+                              <div>
+                                <div style={{ marginBottom: '2px', fontWeight: 500 }}>Profit</div>
+                                <div style={{
+                                  color: rival.profit >= 0 ? '#2e7d32' : '#d32f2f'
+                                }}>
+                                  ${rival.profit.toFixed(2)}
+                                </div>
+                              </div>
+                              <div>
+                                <div style={{ marginBottom: '2px', fontWeight: 500 }}>Share</div>
+                                <div>{(rival.marketShare * 100).toFixed(1)}%</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td style={{ 
+                      padding: '12px',
+                      borderBottom: '1px solid rgba(0,0,0,0.12)',
+                      textAlign: 'right'
+                    }}>
+                      ${roundStat.playerBid}
+                    </td>
+                    <td style={{ 
+                      padding: '12px',
+                      borderBottom: '1px solid rgba(0,0,0,0.12)',
+                      textAlign: 'right',
+                      color: roundStat.playerProfit >= 0 ? '#2e7d32' : '#d32f2f'
+                    }}>
+                      ${roundStat.playerProfit.toFixed(2)}
+                    </td>
+                    <td style={{ 
+                      padding: '12px',
+                      borderBottom: '1px solid rgba(0,0,0,0.12)',
+                      textAlign: 'right'
+                    }}>
+                      {(roundStat.playerMarketShare * 100).toFixed(1)}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!gameState?.hasGameStarted) {
+    return (
+      <div style={{
+        padding: '16px',
+        maxWidth: '800px',
+        margin: '0 auto',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '16px'
+      }}>
+        <div style={{
+          backgroundColor: '#fff',
+          padding: '24px',
+          borderRadius: '8px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          border: '1px solid rgba(0,0,0,0.12)',
+          textAlign: 'center',
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '16px'
+        }}>
+          <div style={{
+            backgroundColor: '#fff4e5',
+            padding: '12px 24px',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <span style={{
+              color: '#ed6c02',
+              fontSize: '20px'
+            }}>⚠</span>
+            <span style={{
+              color: 'rgba(0,0,0,0.87)',
+              fontWeight: 500
+            }}>
+              Waiting for Next Round
+            </span>
+          </div>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            backgroundColor: '#ffc107',
+            color: 'rgba(0,0,0,0.87)',
+            padding: '4px 12px',
+            borderRadius: '16px',
+            fontSize: '14px',
+            fontWeight: 500
+          }}>
+            <span>Starting in {remainingTime}</span>
           </div>
         </div>
       </div>
@@ -514,177 +803,319 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
   }
 
   return (
-    <div style={{ padding: '20px' }}>
-      <div style={{
-        backgroundColor: '#f8f9fa',
-        padding: '20px',
-        borderRadius: '8px',
-        marginBottom: '20px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <div>
-          <div style={{ fontSize: '18px', marginBottom: '5px' }}>
-            Round {(gameState?.currentRound ?? 0)} of {(gameState?.totalRounds ?? 0)}
-            {isFinalRound && (
-              <span style={{ 
-                color: '#dc3545',
-                marginLeft: '10px',
-                fontSize: '14px',
-                fontWeight: 500
-              }}>
-                (Final Round)
-              </span>
-            )}
-          </div>
-          <div style={{ color: '#6c757d' }}>
-            Time Remaining: {remainingTime}
-          </div>
-        </div>
-        {gameState?.isActive && (
-          <div style={{
-            backgroundColor: '#28a745',
-            color: 'white',
-            padding: '8px 16px',
-            borderRadius: '4px',
-            fontSize: '14px',
-            fontWeight: 500
-          }}>
-            Round Active
-          </div>
-        )}
-      </div>
+    <div style={{ padding: '16px', maxWidth: '100%', margin: '0 auto' }}>
       <div style={{
         backgroundColor: '#fff',
-        padding: '20px',
+        padding: '16px',
         borderRadius: '8px',
-        border: '1px solid #dee2e6',
-        marginBottom: '20px',
-        textAlign: 'center'
+        marginBottom: '16px',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        border: '1px solid rgba(0,0,0,0.12)'
       }}>
-        <h2 style={{
-          color: '#212529',
-          marginBottom: '20px',
-          fontSize: '24px'
-        }}>
-          Bidding Interface
-        </h2>
         <div style={{
-          color: '#6c757d',
-          fontSize: '16px',
-          marginBottom: '20px'
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+          marginBottom: '16px'
         }}>
-          Playing as: <span style={{ color: '#28a745', fontWeight: 500 }}>{user?.email ? user.email.split('@')[0] : ''}</span>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '8px'
+          }}>
+            <div style={{
+              fontSize: '20px',
+              fontWeight: 600,
+              color: 'rgba(0,0,0,0.87)'
+            }}>
+              {user?.email ? user.email.split('@')[0] : ''}
+            </div>
+          </div>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: '8px',
+            fontSize: '14px',
+            color: 'rgba(0,0,0,0.6)'
+          }}>
+            <div>
+              <div style={{
+                fontSize: '14px',
+                color: 'rgba(0,0,0,0.6)',
+                marginBottom: '4px'
+              }}>
+                Round
+              </div>
+              <div style={{
+                fontSize: '20px',
+                color: 'rgba(0,0,0,0.87)',
+                fontWeight: 500
+              }}>
+                {getDisplayRound()}
+              </div>
+            </div>
+            <div>Time: {remainingTime}</div>
+          </div>
         </div>
       </div>
-      {/* Round History and Statistics */}
-      {(gameState?.roundHistory?.length ?? 0) > 0 && (
-        <div style={{ marginTop: '20px' }}>
-          <h3>Round History (vs Rivals)</h3>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
-            <thead>
-              <tr>
-                <th style={{ padding: '8px', borderBottom: '2px solid #ddd' }}>Round</th>
-                <th style={{ padding: '8px', borderBottom: '2px solid #ddd' }}>Your Bid</th>
-                <th style={{ padding: '8px', borderBottom: '2px solid #ddd' }}>Your Profit</th>
-                <th style={{ padding: '8px', borderBottom: '2px solid #ddd' }}>Your Market Share</th>
-                <th style={{ padding: '8px', borderBottom: '2px solid #ddd' }}>Rival Performance</th>
-              </tr>
-            </thead>
-            <tbody>
-              {getRivalStats().map((roundStat) => (
-                <tr key={roundStat.round}>
-                  <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>
-                    {roundStat.round}
-                  </td>
-                  <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>
-                    ${roundStat.playerBid.toFixed(2)}
-                  </td>
-                  <td style={{ 
-                    padding: '8px', 
-                    borderBottom: '1px solid #ddd',
-                    color: roundStat.playerProfit >= 0 ? 'green' : 'red'
-                  }}>
-                    ${roundStat.playerProfit.toFixed(2)}
-                  </td>
-                  <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>
-                    {(roundStat.playerMarketShare * 100).toFixed(1)}%
-                  </td>
-                  <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>
-                    {roundStat.rivals.map(rival => (
-                      <div key={rival.name} style={{ marginBottom: '4px' }}>
-                        <strong>{rival.name}:</strong> Bid: ${rival.bid.toFixed(2)}, 
-                        Profit: <span style={{ color: rival.profit >= 0 ? 'green' : 'red' }}>
-                          ${rival.profit.toFixed(2)}
-                        </span>, 
-                        Share: {(rival.marketShare * 100).toFixed(1)}%
-                      </div>
-                    ))}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+
       <form onSubmit={handleBidSubmit}>
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', marginBottom: '5px' }}>
-            Your Bid (${gameState?.minBid ?? 0} - ${gameState?.maxBid ?? 0}):
-          </label>
-          <input
-            type="number"
-            value={bid === null ? '' : bid}
-            onChange={(e) => {
-              const value = e.target.value;
-              console.log('Bid input changed:', {
-                value,
-                parsed: Number(value),
-                isEmpty: value === ''
-              });
-              setBid(value === '' ? null : Number(value));
-            }}
-            min={gameState?.minBid ?? 0}
-            max={gameState?.maxBid ?? 0}
-            step="0.01"
-            disabled={!isInputEnabled()}
-            placeholder="Enter your bid"
-            style={{
-              width: '100%',
-              padding: '8px',
-              borderRadius: '4px',
-              border: '1px solid #ced4da'
-            }}
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={!canSubmitBid()}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: canSubmitBid() ? '#28a745' : '#6c757d',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: canSubmitBid() ? 'pointer' : 'not-allowed',
+        <div style={{
+          backgroundColor: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+          marginBottom: '16px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          border: '1px solid rgba(0,0,0,0.12)'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '24px',
+            marginBottom: '16px',
+            fontSize: '16px',
+            fontWeight: 600,
+            color: 'rgba(0,0,0,0.87)'
+          }}>
+            <div>Min: ${gameState?.minBid ?? 0}</div>
+            <div>Max: ${gameState?.maxBid ?? 0}</div>
+            <div>Cost/Unit: ${gameState?.costPerUnit ?? 0}</div>
+          </div>
+
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
             width: '100%'
-          }}
-        >
-          {playerState.hasSubmittedBid ? 'Bid Submitted' : 'Submit Bid'}
-        </button>
+          }}>
+            <input
+              type="number"
+              value={bid ?? ''}
+              onChange={(e) => setBid(Number(e.target.value))}
+              disabled={!isInputEnabled()}
+              min={gameState?.minBid ?? 0}
+              max={gameState?.maxBid ?? 0}
+              step="0.01"
+              style={{
+                width: '96%',
+                padding: '12px',
+                borderRadius: '4px',
+                border: '1px solid rgba(0,0,0,0.23)',
+                fontSize: '16px',
+                marginBottom: '16px',
+                outline: 'none'
+              }}
+              placeholder={`Bid (${gameState?.minBid ?? 0}-${gameState?.maxBid ?? 0})`}
+            />
+
+            <button
+              type="submit"
+              disabled={!canSubmitBid()}
+              style={{
+                width: '96%',
+                padding: '12px',
+                backgroundColor: canSubmitBid() ? '#1976d2' : 'rgba(0,0,0,0.12)',
+                color: canSubmitBid() ? 'white' : 'rgba(0,0,0,0.38)',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: canSubmitBid() ? 'pointer' : 'not-allowed',
+                fontSize: '16px',
+                textTransform: 'uppercase',
+                fontWeight: 500,
+                letterSpacing: '0.5px',
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <div style={{
+                position: 'absolute',
+                left: '12px',
+                backgroundColor: gameState?.isActive ? '#2e7d32' : '#ffc107',
+                color: gameState?.isActive ? 'white' : 'rgba(0,0,0,0.87)',
+                padding: '4px 8px',
+                borderRadius: '12px',
+                fontSize: '12px',
+                fontWeight: 500,
+                letterSpacing: '0.5px'
+              }}>
+                {gameState?.isActive ? 'Active' : 'Waiting'}
+              </div>
+              <span style={{
+                marginLeft: '48px'  // Give space for the pill on the left
+              }}>
+                {playerState.hasSubmittedBid ? 'Bid Submitted' : 'Submit Bid'}
+              </span>
+            </button>
+          </div>
+        </div>
       </form>
 
-      {playerState.hasSubmittedBid && (
+      {(gameState?.roundHistory?.length ?? 0) > 0 && (
         <div style={{
-          marginTop: '15px',
-          padding: '10px',
-          backgroundColor: '#d4edda',
-          color: '#155724',
-          borderRadius: '4px',
-          textAlign: 'center'
+          backgroundColor: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          border: '1px solid rgba(0,0,0,0.12)'
         }}>
-          Your bid of ${playerState.currentBid?.toFixed(2)} has been submitted!
+          <h3 style={{ 
+            fontSize: '16px',
+            marginBottom: '16px',
+            color: 'rgba(0,0,0,0.87)'
+          }}>
+            Round History
+          </h3>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ 
+              width: '100%',
+              borderCollapse: 'collapse',
+              fontSize: '14px'
+            }}>
+              <thead>
+                <tr>
+                  <th style={{ 
+                    padding: '12px',
+                    borderBottom: '2px solid rgba(0,0,0,0.12)',
+                    textAlign: 'left',
+                    whiteSpace: 'nowrap',
+                    fontSize: '14px'
+                  }}>
+                    #
+                  </th>
+                  <th style={{ 
+                    padding: '12px',
+                    borderBottom: '2px solid rgba(0,0,0,0.12)',
+                    textAlign: 'left',
+                    whiteSpace: 'nowrap',
+                    fontSize: '14px'
+                  }}>
+                    Rivals
+                  </th>
+                  <th style={{ 
+                    padding: '12px',
+                    borderBottom: '2px solid rgba(0,0,0,0.12)',
+                    textAlign: 'right',
+                    whiteSpace: 'nowrap',
+                    fontSize: '14px'
+                  }}>
+                    Bid
+                  </th>
+                  <th style={{ 
+                    padding: '12px',
+                    borderBottom: '2px solid rgba(0,0,0,0.12)',
+                    textAlign: 'right',
+                    whiteSpace: 'nowrap',
+                    fontSize: '14px'
+                  }}>
+                    Profit
+                  </th>
+                  <th style={{ 
+                    padding: '12px',
+                    borderBottom: '2px solid rgba(0,0,0,0.12)',
+                    textAlign: 'right',
+                    whiteSpace: 'nowrap',
+                    fontSize: '14px'
+                  }}>
+                    %
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {getRivalStats().map((roundStat) => (
+                  <tr key={roundStat.round}>
+                    <td style={{ 
+                      padding: '12px',
+                      borderBottom: '1px solid rgba(0,0,0,0.12)',
+                      textAlign: 'left'
+                    }}>
+                      {Math.min(roundStat.round, gameState?.totalRounds ?? 0)}
+                    </td>
+                    <td style={{ 
+                      padding: '12px',
+                      borderBottom: '1px solid rgba(0,0,0,0.12)',
+                      fontSize: '13px'
+                    }}>
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px'
+                      }}>
+                        {roundStat.rivals.map(rival => (
+                          <div key={rival.name} style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px',
+                            padding: '8px',
+                            backgroundColor: 'rgba(0,0,0,0.02)',
+                            borderRadius: '4px'
+                          }}>
+                            <div style={{
+                              fontWeight: 500,
+                              color: 'rgba(0,0,0,0.87)',
+                              marginBottom: '4px'
+                            }}>
+                              {rival.name}
+                            </div>
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(3, 1fr)',
+                              gap: '8px',
+                              fontSize: '12px',
+                              color: 'rgba(0,0,0,0.6)'
+                            }}>
+                              <div>
+                                <div style={{ marginBottom: '2px', fontWeight: 500 }}>Bid</div>
+                                <div>${rival.bid}</div>
+                              </div>
+                              <div>
+                                <div style={{ marginBottom: '2px', fontWeight: 500 }}>Profit</div>
+                                <div style={{
+                                  color: rival.profit >= 0 ? '#2e7d32' : '#d32f2f'
+                                }}>
+                                  ${rival.profit.toFixed(2)}
+                                </div>
+                              </div>
+                              <div>
+                                <div style={{ marginBottom: '2px', fontWeight: 500 }}>Share</div>
+                                <div>{(rival.marketShare * 100).toFixed(1)}%</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td style={{ 
+                      padding: '12px',
+                      borderBottom: '1px solid rgba(0,0,0,0.12)',
+                      textAlign: 'right'
+                    }}>
+                      ${roundStat.playerBid}
+                    </td>
+                    <td style={{ 
+                      padding: '12px',
+                      borderBottom: '1px solid rgba(0,0,0,0.12)',
+                      textAlign: 'right',
+                      color: roundStat.playerProfit >= 0 ? '#2e7d32' : '#d32f2f'
+                    }}>
+                      ${roundStat.playerProfit.toFixed(2)}
+                    </td>
+                    <td style={{ 
+                      padding: '12px',
+                      borderBottom: '1px solid rgba(0,0,0,0.12)',
+                      textAlign: 'right'
+                    }}>
+                      {(roundStat.playerMarketShare * 100).toFixed(1)}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

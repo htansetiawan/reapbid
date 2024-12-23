@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -23,9 +23,30 @@ const PlayPage: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [error, setError] = useState<string>('');
   const [hasJoined, setHasJoined] = useState(false);
+  const [gameStatus, setGameStatus] = useState<string>('');
 
   // Extract name from email (everything before @) and normalize by removing dots
   const playerName = user?.email ? user.email.split('@')[0].replace(/\./g, '') : '';
+
+  // Subscribe to game state changes
+  useEffect(() => {
+    if (gameState?.isActive && !hasJoined) {
+      setGameStatus('Round in Progress - Join Now!');
+    } else if (!gameState?.hasGameStarted) {
+      setGameStatus('Waiting for Game to Start');
+    } else if (gameState?.isEnded) {
+      setGameStatus('Game has Ended');
+    } else if (!gameState?.isActive && gameState?.hasGameStarted) {
+      setGameStatus('Waiting for Next Round');
+    }
+  }, [gameState?.isActive, gameState?.hasGameStarted, gameState?.isEnded, hasJoined]);
+
+  // Check if player is already registered
+  useEffect(() => {
+    if (gameState?.players?.[playerName]) {
+      setHasJoined(true);
+    }
+  }, [gameState?.players, playerName]);
 
   const handleJoinGame = async () => {
     try {
@@ -43,12 +64,6 @@ const PlayPage: React.FC = () => {
         return;
       }
 
-      // Check if player is already registered
-      if (gameState?.players?.[playerName]) {
-        setHasJoined(true);
-        return;
-      }
-
       // Register the player
       await registerPlayer(playerName);
       setHasJoined(true);
@@ -56,6 +71,12 @@ const PlayPage: React.FC = () => {
       setError('Failed to join the game. Please try again.');
       console.error('Error joining game:', err);
     }
+  };
+
+  const getDisplayRound = () => {
+    const currentRound = gameState?.currentRound ?? 0;
+    const totalRounds = gameState?.totalRounds ?? 0;
+    return Math.min(currentRound, totalRounds);
   };
 
   // If player has joined, show BiddingInterface
@@ -140,9 +161,26 @@ const PlayPage: React.FC = () => {
                 Players: {Object.keys(gameState?.players || {}).length} / {gameState?.maxPlayers ?? 0}
               </Typography>
               {gameState?.hasGameStarted && (
-                <Typography variant="body2" color="text.secondary" align="center">
-                  Round: {gameState?.currentRound ?? 0} / {gameState?.totalRounds ?? 0}
-                </Typography>
+                <>
+                  <Typography variant="body1" style={{ marginBottom: '8px' }}>
+                    Round: {getDisplayRound()} / {gameState?.totalRounds ?? 0}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 1 }}>
+                    Cost per Unit: ${gameState?.costPerUnit ?? 0}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 1 }}>
+                    Bid Range: ${gameState?.minBid ?? 0} - ${gameState?.maxBid ?? 0}
+                  </Typography>
+                </>
+              )}
+              {/* Game Status Alert */}
+              {gameStatus && (
+                <Alert 
+                  severity={gameState?.isActive ? "info" : "warning"}
+                  sx={{ mt: 2 }}
+                >
+                  {gameStatus}
+                </Alert>
               )}
             </Box>
 

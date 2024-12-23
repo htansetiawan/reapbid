@@ -231,6 +231,16 @@ const AdminDashboard: React.FC = () => {
   const isFinalRound = (gameState?.currentRound ?? 0) === (gameState?.totalRounds ?? 0);
   const isGameEnded = gameState?.isEnded;
 
+  const getDisplayRound = () => {
+    const currentRound = gameState?.currentRound ?? 0;
+    const totalRounds = gameState?.totalRounds ?? 0;
+    return Math.min(currentRound, totalRounds);
+  };
+
+  const handleEndRound = async () => {
+    // No implementation
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <Box sx={{ 
@@ -332,8 +342,11 @@ const AdminDashboard: React.FC = () => {
               <Typography variant="h5" sx={{ mb: 3 }}>Game Status</Typography>
               <Grid container spacing={3}>
                 <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="body1">
-                    <strong>Current Round:</strong> {(gameState?.currentRound ?? 0) === 0 ? 'Round 1 (Not Started)' : (gameState?.currentRound ?? 0)}
+                  <Typography variant="h6" gutterBottom>
+                    Round {getDisplayRound()} of {(gameState?.totalRounds ?? 0)}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {(gameState?.isActive ? 'Round in Progress' : 'Round Ended')}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
@@ -378,7 +391,7 @@ const AdminDashboard: React.FC = () => {
                     <span style={{ color: '#dc3545' }}>Game Ended</span>
                   ) : (
                     <>
-                      Round {(gameState?.currentRound ?? 0)} of {(gameState?.totalRounds ?? 0)}
+                      Round {getDisplayRound()} of {(gameState?.totalRounds ?? 0)}
                       {(isFinalRound && (
                         <span style={{ 
                           color: '#dc3545',
