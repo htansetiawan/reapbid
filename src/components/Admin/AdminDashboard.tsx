@@ -12,7 +12,8 @@ import {
   Button,
   Grid,
   ThemeProvider,
-  createTheme
+  createTheme,
+  Stack
 } from '@mui/material';
 
 const theme = createTheme({
@@ -37,6 +38,8 @@ const theme = createTheme({
         root: {
           borderRadius: 8,
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          padding: '24px',
+          marginBottom: '24px',
         },
       },
     },
@@ -46,6 +49,15 @@ const theme = createTheme({
           borderRadius: 4,
           textTransform: 'none',
           padding: '8px 16px',
+        },
+      },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-root': {
+            borderRadius: 4,
+          },
         },
       },
     },
@@ -84,7 +96,6 @@ const AdminDashboard: React.FC = () => {
       maxPlayers: parseInt(maxPlayers)
     });
   };
-
 
   const handleNextRound = () => {
     if (gameState?.isActive) {
@@ -223,93 +234,93 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <ThemeProvider theme={theme}>
-      <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', paddingBottom: '50px' }}>
-        <Container maxWidth="lg" sx={{ padding: '20px' }}>
+      <Box sx={{ 
+        minHeight: '100vh', 
+        backgroundColor: 'background.default', 
+        py: 4 
+      }}>
+        <Container maxWidth="xl">
           {/* Header Section */}
-          <Box sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '20px'
-          }}>
-            <Typography variant="h1">Admin Dashboard</Typography>
-            <Box>
-              {/* Round Controls */}
-              <Box sx={{ marginTop: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
-                {!gameState?.hasGameStarted ? (
-                  <Button
-                    onClick={handleStartGame}
-                    variant="contained"
-                    color="primary"
-                  >
-                    Start Game
-                  </Button>
-                ) : null}
-              </Box>
+          <Paper sx={{ mb: 3 }}>
+            <Box sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 2
+            }}>
+              <Typography variant="h4" component="h1" sx={{ fontWeight: 500 }}>
+                Admin Dashboard
+              </Typography>
+              {!gameState?.hasGameStarted && (
+                <Button
+                  variant="contained"
+                  onClick={handleStartGame}
+                  color="primary"
+                >
+                  Start Game
+                </Button>
+              )}
             </Box>
-          </Box>
+          </Paper>
 
           {/* Game Configuration Form */}
           {!gameState?.hasGameStarted && (
-            <Paper sx={{
-              padding: '20px',
-              borderRadius: '8px',
-              marginBottom: '20px'
-            }}>
-              <Typography variant="h2" sx={{ marginBottom: '20px' }}>Game Configuration</Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+            <Paper>
+              <Typography variant="h5" sx={{ mb: 3 }}>Game Configuration</Typography>
+              <Grid container spacing={3}>
+                <Grid item xs={12} sm={6} md={4}>
                   <TextField
+                    fullWidth
                     label="Total Rounds"
                     type="number"
                     value={totalRounds}
                     onChange={(e) => setTotalRounds(e.target.value)}
-                    fullWidth
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} md={4}>
                   <TextField
+                    fullWidth
                     label="Round Time Limit (seconds)"
                     type="number"
                     value={roundTimeLimit}
                     onChange={(e) => setRoundTimeLimit(e.target.value)}
-                    fullWidth
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} md={4}>
                   <TextField
+                    fullWidth
                     label="Minimum Bid"
                     type="number"
                     value={minBid}
                     onChange={(e) => setMinBid(e.target.value)}
-                    fullWidth
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} md={4}>
                   <TextField
+                    fullWidth
                     label="Maximum Bid"
                     type="number"
                     value={maxBid}
                     onChange={(e) => setMaxBid(e.target.value)}
-                    fullWidth
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} md={4}>
                   <TextField
+                    fullWidth
                     label="Cost Per Unit"
                     type="number"
                     value={costPerUnit}
                     onChange={(e) => setCostPerUnit(e.target.value)}
-                    fullWidth
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} md={4}>
                   <TextField
+                    fullWidth
                     label="Maximum Players"
                     type="number"
                     value={maxPlayers}
                     onChange={(e) => setMaxPlayers(e.target.value)}
-                    fullWidth
                   />
                 </Grid>
               </Grid>
@@ -318,29 +329,25 @@ const AdminDashboard: React.FC = () => {
 
           {/* Game Status Display */}
           {gameState?.hasGameStarted && (
-            <Paper sx={{
-              padding: '20px',
-              borderRadius: '8px',
-              marginBottom: '20px'
-            }}>
-              <Typography variant="h2" sx={{ marginBottom: '20px' }}>Game Status</Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+            <Paper>
+              <Typography variant="h5" sx={{ mb: 3 }}>Game Status</Typography>
+              <Grid container spacing={3}>
+                <Grid item xs={12} sm={6} md={3}>
                   <Typography variant="body1">
                     <strong>Current Round:</strong> {(gameState?.currentRound ?? 0) === 0 ? 'Round 1 (Not Started)' : (gameState?.currentRound ?? 0)}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} md={3}>
                   <Typography variant="body1">
                     <strong>Total Rounds:</strong> {(gameState?.totalRounds ?? 0)}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} md={3}>
                   <Typography variant="body1">
                     <strong>Round Status:</strong> {(gameState?.isActive ? 'Active' : 'Inactive')}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} md={3}>
                   <Typography variant="body1">
                     <strong>Players:</strong> {Object.keys(gameState?.players || {}).length} / {(gameState?.maxPlayers ?? 0)}
                   </Typography>
@@ -351,22 +358,17 @@ const AdminDashboard: React.FC = () => {
 
           {/* Game Controls */}
           {gameState?.hasGameStarted && (
-            <Paper sx={{
-              padding: '20px',
-              borderRadius: '8px',
-              marginBottom: '30px',
-              border: '1px solid #dee2e6'
-            }}>
+            <Paper>
               {error && (
-                <Typography variant="body1" sx={{ color: 'red', marginBottom: '1rem' }}>
+                <Typography color="error" sx={{ mb: 2 }}>
                   {error}
                 </Typography>
               )}
               <Box sx={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '20px',
-                marginBottom: '15px'
+                gap: 2,
+                mb: 2
               }}>
                 <Typography variant="body1" sx={{
                   fontSize: '16px',
@@ -401,32 +403,24 @@ const AdminDashboard: React.FC = () => {
                   </Typography>
                 )}
               </Box>
-              <Box sx={{ display: 'flex', gap: 2, marginBottom: 2 }}>
+              <Stack direction="row" spacing={2}>
                 {gameState?.hasGameStarted && !gameState?.isEnded && (
                   <>
                     <Button
                       variant="contained"
                       onClick={handleNextRound}
                       disabled={!gameState?.isActive && (gameState?.currentRound ?? 0) > (gameState?.totalRounds ?? 0)}
-                      sx={{ 
-                        backgroundColor: gameState?.isActive ? '#dc3545' : '#28a745',
-                        '&:hover': {
-                          backgroundColor: gameState?.isActive ? '#c82333' : '#218838'
-                        }
-                      }}
+                      color={gameState?.isActive ? "error" : "success"}
                     >
                       {gameState?.isActive ? 'End Round' : 'Start Round'}
                     </Button>
-
-
                     <Button
-                      variant="contained"
+                      variant="outlined"
                       color="error"
                       onClick={handleEndGame}
                     >
                       End Game
                     </Button>
-
                     <Button
                       variant="contained"
                       color="primary"
@@ -437,18 +431,14 @@ const AdminDashboard: React.FC = () => {
                     </Button>
                   </>
                 )}
-              </Box>
+              </Stack>
             </Paper>
           )}
 
           {/* Player Tracking Table */}
           {gameState?.hasGameStarted && (
-            <Paper sx={{
-              padding: '20px',
-              borderRadius: '8px',
-              marginBottom: '20px'
-            }}>
-              <Typography variant="h3" sx={{ marginBottom: '20px' }}>Player Tracking</Typography>
+            <Paper>
+              <Typography variant="h5" sx={{ mb: 3 }}>Player Tracking</Typography>
               <PlayerTrackingTable playerStats={calculatePlayerStats()} />
             </Paper>
           )}
@@ -456,9 +446,6 @@ const AdminDashboard: React.FC = () => {
           {/* Rivalry Table */}
           {gameState?.hasGameStarted && (
             <Paper sx={{
-              padding: '20px',
-              borderRadius: '8px',
-              marginBottom: '20px',
               opacity: (gameState?.currentRound ?? 0) > 0 ? 0.7 : 1,
               pointerEvents: (gameState?.currentRound ?? 0) > 0 ? 'none' : 'auto'
             }}>
@@ -478,19 +465,16 @@ const AdminDashboard: React.FC = () => {
                     Rivals cannot be modified after game starts
                   </Box>
                 )}
-                <Typography variant="h3" sx={{ marginBottom: '20px' }}>Rivalries</Typography>
+                <Typography variant="h5" sx={{ mb: 3 }}>Rivalries</Typography>
                 <RivalryTable />
               </Box>
             </Paper>
           )}
 
           {/* Game Summary */}
-          {gameState?.hasGameStarted && (
-            <Paper sx={{
-              padding: '30px',
-              borderRadius: '8px',
-              marginTop: '30px'
-            }}>
+          {gameState?.hasGameStarted && showSummary && (
+            <Paper>
+              <Typography variant="h5" sx={{ mb: 3 }}>Game Summary</Typography>
               <GameSummaryTable />
             </Paper>
           )}
