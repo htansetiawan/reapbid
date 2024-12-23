@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-interface Player {
+export interface Player {
   name: string;
   currentBid: number | null;
   hasSubmittedBid: boolean;
@@ -8,7 +8,7 @@ interface Player {
   isTimedOut?: boolean;
 }
 
-interface RoundResult {
+export interface RoundResult {
   round: number;
   bids: Record<string, number>;
   marketShares: Record<string, number>;
@@ -16,7 +16,7 @@ interface RoundResult {
   timestamp: number;
 }
 
-interface GameState {
+export interface GameState {
   hasGameStarted: boolean;
   isActive: boolean;
   isEnded: boolean;
