@@ -83,7 +83,6 @@ const AdminDashboard: React.FC = () => {
   const [costPerUnit, setCostPerUnit] = useState('50');
   const [maxPlayers, setMaxPlayers] = useState('200');
   const [extendTimeAmount, setExtendTimeAmount] = useState('30');
-  const [showSummary, setShowSummary] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleStartGame = () => {
@@ -101,7 +100,6 @@ const AdminDashboard: React.FC = () => {
     if (gameState?.isActive) {
       if ((gameState?.currentRound ?? 0) === (gameState?.totalRounds ?? 0)) {
         endCurrentRound();
-        setShowSummary(true);
       } else {
         endCurrentRound();
       }
@@ -173,7 +171,6 @@ const AdminDashboard: React.FC = () => {
         endCurrentRound();
       }
       endGame();
-      setShowSummary(true);
     }
   };
 
@@ -484,9 +481,8 @@ const AdminDashboard: React.FC = () => {
           )}
 
           {/* Game Summary */}
-          {gameState?.hasGameStarted && showSummary && (
+          {gameState?.hasGameStarted && gameState?.roundHistory?.length > 0 && (
             <Paper>
-              <Typography variant="h5" sx={{ mb: 3 }}>Game Summary</Typography>
               <GameSummaryTable />
             </Paper>
           )}

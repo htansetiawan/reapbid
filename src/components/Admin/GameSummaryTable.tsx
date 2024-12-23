@@ -91,20 +91,29 @@ const GameSummaryTable: React.FC = () => {
   });
 
   // If there's no round history, show a message
-  if (!gameState?.roundHistory) {
-    console.log('No round history array found');
+  if (!gameState?.roundHistory || gameState.roundHistory.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: '20px', color: '#6c757d' }}>
-        No rounds completed yet. Round summary will appear here after the first round.
-      </div>
-    );
-  }
-
-  if (gameState.roundHistory.length === 0) {
-    console.log('Round history array is empty');
-    return (
-      <div style={{ textAlign: 'center', padding: '20px', color: '#6c757d' }}>
-        No rounds completed yet. Round summary will appear here after the first round.
+      <div style={{
+        backgroundColor: '#fff',
+        borderRadius: '8px',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        border: '1px solid rgba(0,0,0,0.12)',
+        padding: '24px',
+        textAlign: 'center'
+      }}>
+        <div style={{
+          color: 'rgba(0,0,0,0.6)',
+          fontSize: '16px',
+          marginBottom: '12px'
+        }}>
+          No rounds completed yet
+        </div>
+        <div style={{
+          color: 'rgba(0,0,0,0.45)',
+          fontSize: '14px'
+        }}>
+          Round summary will appear here as the game progresses
+        </div>
       </div>
     );
   }
@@ -236,20 +245,18 @@ const GameSummaryTable: React.FC = () => {
   return (
     <div style={{
       backgroundColor: '#fff',
-      border: '1px solid #dee2e6',
       borderRadius: '8px',
-      padding: '20px',
-      marginTop: '20px'
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      border: '1px solid rgba(0,0,0,0.12)',
+      padding: '24px'
     }}>
       <h3 style={{ marginBottom: '20px', color: '#212529' }}>Game Summary</h3>
       
       {/* Tabs */}
       <div style={{ 
-        display: 'flex',
-        gap: '4px',
-        marginBottom: '20px',
-        overflowX: 'auto',
-        padding: '4px',
+        display: 'flex', 
+        gap: '8px', 
+        marginBottom: '16px',
         borderBottom: '1px solid #dee2e6'
       }}>
         {rounds.map((round, index) => (
@@ -265,88 +272,131 @@ const GameSummaryTable: React.FC = () => {
         ))}
       </div>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
-        <thead>
-          <tr>
-            <SortableHeader
-              label="Player"
-              field="name"
-              currentSort={sort}
-              onSort={handleSort}
-            />
-            <SortableHeader
-              label="Bid"
-              field="bid"
-              currentSort={sort}
-              onSort={handleSort}
-            />
-            <SortableHeader
-              label="Market Share"
-              field="marketShare"
-              currentSort={sort}
-              onSort={handleSort}
-            />
-            <SortableHeader
-              label="Profit"
-              field="profit"
-              currentSort={sort}
-              onSort={handleSort}
-            />
-            {activeRound === 0 && (
+      {/* Table */}
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ 
+          width: '100%',
+          borderCollapse: 'collapse',
+          marginBottom: '16px'
+        }}>
+          <thead>
+            <tr style={{
+              backgroundColor: '#f8f9fa'
+            }}>
               <SortableHeader
-                label="Total Profit"
-                field="totalProfit"
+                label="Player"
+                field="name"
                 currentSort={sort}
                 onSort={handleSort}
               />
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {currentPlayers.map(player => (
-            <tr 
-              key={player}
-              onClick={() => setSelectedPlayer(selectedPlayer === player ? null : player)}
-              style={{ 
-                cursor: 'pointer',
-                backgroundColor: selectedPlayer === player ? '#f8f9fa' : 'transparent'
+              <SortableHeader
+                label="Bid"
+                field="bid"
+                currentSort={sort}
+                onSort={handleSort}
+              />
+              <SortableHeader
+                label="Market Share"
+                field="marketShare"
+                currentSort={sort}
+                onSort={handleSort}
+              />
+              <SortableHeader
+                label={activeRound === 0 ? "Total Profit" : "Profit"}
+                field={activeRound === 0 ? "totalProfit" : "profit"}
+                currentSort={sort}
+                onSort={handleSort}
+              />
+            </tr>
+          </thead>
+          <tbody>
+            {currentPlayers.map(player => (
+              <tr
+                key={player}
+                style={{
+                  backgroundColor: selectedPlayer === player ? '#f8f9fa' : 'transparent',
+                  cursor: 'pointer'
+                }}
+                onClick={() => setSelectedPlayer(selectedPlayer === player ? null : player)}
+              >
+                <td style={{ 
+                  padding: '12px',
+                  borderBottom: '1px solid #dee2e6',
+                  fontWeight: 500
+                }}>
+                  {player}
+                </td>
+                <td style={{ 
+                  padding: '12px',
+                  borderBottom: '1px solid #dee2e6',
+                  textAlign: 'right'
+                }}>
+                  {activeRound === 0
+                    ? aggregatedData[player]?.averageBid.toFixed(2)
+                    : (gameState.roundHistory[activeRound - 1]?.bids[player] ?? 0).toFixed(2)}
+                </td>
+                <td style={{ 
+                  padding: '12px',
+                  borderBottom: '1px solid #dee2e6',
+                  textAlign: 'right'
+                }}>
+                  {activeRound === 0
+                    ? (aggregatedData[player]?.averageMarketShare * 100).toFixed(2)
+                    : ((gameState.roundHistory[activeRound - 1]?.marketShares[player] ?? 0) * 100).toFixed(2)}%
+                </td>
+                <td style={{ 
+                  padding: '12px',
+                  borderBottom: '1px solid #dee2e6',
+                  textAlign: 'right',
+                  color: activeRound === 0 
+                    ? aggregatedData[player]?.profits[aggregatedData[player]?.profits.length - 1] >= 0 
+                      ? '#2e7d32' 
+                      : '#d32f2f' 
+                    : (gameState.roundHistory[activeRound - 1]?.profits[player] ?? 0) >= 0 
+                      ? '#2e7d32' 
+                      : '#d32f2f',
+                  fontWeight: 500
+                }}>
+                  {activeRound === 0
+                    ? aggregatedData[player]?.profits[aggregatedData[player]?.profits.length - 1].toFixed(2)
+                    : (gameState.roundHistory[activeRound - 1]?.profits[player] ?? 0).toFixed(2)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '8px',
+          marginTop: '16px'
+        }}>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            <button
+              key={page}
+              onClick={() => setCurrentPage(page)}
+              style={{
+                padding: '8px 12px',
+                backgroundColor: currentPage === page ? '#1976d2' : '#fff',
+                color: currentPage === page ? '#fff' : '#1976d2',
+                border: '1px solid #1976d2',
+                borderRadius: '4px',
+                cursor: 'pointer'
               }}
             >
-              <td style={{ padding: '12px', borderBottom: '1px solid #dee2e6' }}>{player}</td>
-              <td style={{ padding: '12px', textAlign: 'right', borderBottom: '1px solid #dee2e6' }}>
-                {activeRound === 0
-                  ? aggregatedData[player]?.averageBid.toFixed(2)
-                  : (gameState.roundHistory[activeRound - 1]?.bids[player] ?? 0).toFixed(2)}
-              </td>
-              <td style={{ padding: '12px', textAlign: 'right', borderBottom: '1px solid #dee2e6' }}>
-                {activeRound === 0
-                  ? (aggregatedData[player]?.averageMarketShare * 100).toFixed(2)
-                  : ((gameState.roundHistory[activeRound - 1]?.marketShares[player] ?? 0) * 100).toFixed(2)}%
-              </td>
-              <td style={{ padding: '12px', textAlign: 'right', borderBottom: '1px solid #dee2e6' }}>
-                {activeRound === 0
-                  ? aggregatedData[player]?.profits[aggregatedData[player]?.profits.length - 1].toFixed(2)
-                  : (gameState.roundHistory[activeRound - 1]?.profits[player] ?? 0).toFixed(2)}
-              </td>
-              {activeRound === 0 && (
-                <td style={{ padding: '12px', textAlign: 'right', borderBottom: '1px solid #dee2e6' }}>
-                  {aggregatedData[player]?.totalProfit.toFixed(2)}
-                </td>
-              )}
-            </tr>
+              {page}
+            </button>
           ))}
-        </tbody>
-      </table>
+        </div>
+      )}
 
+      {/* Player Stats Chart */}
       {selectedPlayer && (
-        <>
-          {console.log('GameSummaryTable - Rivalries Debug:', {
-            gameState,
-            selectedPlayer,
-            rivalries: gameState?.rivalries,
-            hasRivalries: gameState?.rivalries && selectedPlayer in gameState.rivalries,
-            playerRivals: gameState?.rivalries?.[selectedPlayer]
-          })}
+        <div style={{ marginTop: '24px' }}>
           <PlayerStatsChart
             playerName={selectedPlayer}
             roundHistory={gameState.roundHistory || []}
@@ -354,41 +404,6 @@ const GameSummaryTable: React.FC = () => {
               ? gameState.rivalries[selectedPlayer] 
               : []}
           />
-        </>
-      )}
-
-      {/* Pagination controls */}
-      {totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '20px' }}>
-          <button
-            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-            disabled={currentPage === 1}
-            style={{
-              padding: '5px 10px',
-              cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-              backgroundColor: currentPage === 1 ? '#e9ecef' : '#fff',
-              border: '1px solid #dee2e6',
-              borderRadius: '4px'
-            }}
-          >
-            Previous
-          </button>
-          <span style={{ padding: '5px 10px' }}>
-            Page {currentPage} of {totalPages}
-          </span>
-          <button
-            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-            disabled={currentPage === totalPages}
-            style={{
-              padding: '5px 10px',
-              cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-              backgroundColor: currentPage === totalPages ? '#e9ecef' : '#fff',
-              border: '1px solid #dee2e6',
-              borderRadius: '4px'
-            }}
-          >
-            Next
-          </button>
         </div>
       )}
     </div>
