@@ -91,6 +91,56 @@ export class LocalStorageAdapter implements StorageAdapter {
     await this.updateGameState({ roundHistory });
   }
 
+  async timeoutPlayer(playerName: string): Promise<void> {
+    const currentState = await this.getGameState() || this.getInitialState();
+    const players = { ...currentState.players };
+    if (players[playerName]) {
+      players[playerName] = { ...players[playerName], isTimedOut: true };
+      await this.updateGameState({ players });
+    }
+  }
+
+  async unTimeoutPlayer(playerName: string): Promise<void> {
+    const currentState = await this.getGameState() || this.getInitialState();
+    const players = { ...currentState.players };
+    if (players[playerName]) {
+      players[playerName] = { ...players[playerName], isTimedOut: false };
+      await this.updateGameState({ players });
+    }
+  }
+
+  async submitBid(playerName: string, bid: number): Promise<void> {
+    const currentState = await this.getGameState() || this.getInitialState();
+    const players = { ...currentState.players };
+    const roundBids = { ...currentState.roundBids };
+    
+    if (players[playerName]) {
+      players[playerName] = {
+        ...players[playerName],
+        currentBid: bid,
+        hasSubmittedBid: true,
+        lastBidTime: Date.now()
+      };
+      roundBids[playerName] = bid;
+      await this.updateGameState({ players, roundBids });
+    }
+  }
+
+  async resetGame(): Promise<void> {
+    await this.updateGameState(this.getInitialState());
+  }
+
+  async extendRoundTime(additionalSeconds: number): Promise<void> {
+    const currentState = await this.getGameState() || this.getInitialState();
+    await this.updateGameState({
+      roundTimeLimit: currentState.roundTimeLimit + additionalSeconds
+    });
+  }
+
+  async updateRivalries(rivalries: Record<string, string[]>): Promise<void> {
+    await this.updateGameState({ rivalries });
+  }
+
   private notifyListeners(gameState: GameState): void {
     this.listeners.forEach(listener => listener(gameState));
   }

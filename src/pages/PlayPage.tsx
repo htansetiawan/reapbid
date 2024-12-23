@@ -32,19 +32,19 @@ const PlayPage: React.FC = () => {
       setError('');
 
       // Check if game has started
-      if (!gameState.hasGameStarted) {
+      if (!gameState?.hasGameStarted) {
         setError('The game has not started yet. Please wait for the host to start the game.');
         return;
       }
 
       // Check if game is already full
-      if (Object.keys(gameState.players).length >= gameState.maxPlayers) {
+      if (Object.keys(gameState?.players || {}).length >= (gameState?.maxPlayers ?? 0)) {
         setError('The game is full. Please try again later.');
         return;
       }
 
       // Check if player is already registered
-      if (gameState.players[playerName]) {
+      if (gameState?.players?.[playerName]) {
         setHasJoined(true);
         return;
       }
@@ -107,7 +107,7 @@ const PlayPage: React.FC = () => {
               gutterBottom
               sx={{ color: 'text.primary', mb: 2 }}
             >
-              {gameState.hasGameStarted ? 'Game in Progress' : 'Waiting for Game to Start'}
+              {gameState?.hasGameStarted ? 'Game in Progress' : 'Waiting for Game to Start'}
             </Typography>
 
             {/* Error Message */}
@@ -137,11 +137,11 @@ const PlayPage: React.FC = () => {
             {/* Game Info */}
             <Box sx={{ mb: 4 }}>
               <Typography variant="body2" color="text.secondary" align="center">
-                Players: {Object.keys(gameState.players).length} / {gameState.maxPlayers}
+                Players: {Object.keys(gameState?.players || {}).length} / {gameState?.maxPlayers ?? 0}
               </Typography>
-              {gameState.hasGameStarted && (
+              {gameState?.hasGameStarted && (
                 <Typography variant="body2" color="text.secondary" align="center">
-                  Round: {gameState.currentRound} / {gameState.totalRounds}
+                  Round: {gameState?.currentRound ?? 0} / {gameState?.totalRounds ?? 0}
                 </Typography>
               )}
             </Box>
@@ -152,7 +152,7 @@ const PlayPage: React.FC = () => {
               variant="contained"
               size="large"
               onClick={handleJoinGame}
-              disabled={!gameState.hasGameStarted}
+              disabled={!gameState?.hasGameStarted}
               sx={{
                 height: 48,
                 textTransform: 'none',
@@ -161,7 +161,7 @@ const PlayPage: React.FC = () => {
                 borderRadius: 1,
               }}
             >
-              {gameState.hasGameStarted ? 'Join Game' : 'Waiting for Game to Start...'}
+              {gameState?.hasGameStarted ? 'Join Game' : 'Waiting for Game to Start...'}
             </Button>
 
             {/* Instructions */}
@@ -171,7 +171,7 @@ const PlayPage: React.FC = () => {
               color="text.secondary"
               sx={{ mt: 3 }}
             >
-              {gameState.hasGameStarted 
+              {gameState?.hasGameStarted 
                 ? 'Click Join Game to start bidding'
                 : 'Please wait for the host to start the game'}
             </Typography>

@@ -45,20 +45,18 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleNextRound = () => {
-    if (gameState.isActive) {
+    if (gameState?.isActive) {
       endCurrentRound();
     } else {
-      // Check if there are at least 2 players
-      const playerCount = Object.keys(gameState.players).length;
+      const playerCount = Object.keys(gameState?.players || {}).length;
       if (playerCount < 2) {
         setError('Cannot start round: At least 2 players are required to start the game');
         return;
       }
 
-      // Check if all players have rivals assigned
-      const playerNames = Object.keys(gameState.players);
+      const playerNames = Object.keys(gameState?.players || {});
       const unassignedPlayers = playerNames.filter(player => {
-        const rivals = gameState.rivalries[player] || [];
+        const rivals = gameState?.rivalries?.[player] || [];
         return rivals.length === 0;
       });
 
@@ -72,40 +70,34 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleStartRound = () => {
-    // Check minimum player count
-    const playerCount = Object.keys(gameState.players).length;
+    const playerCount = Object.keys(gameState?.players || {}).length;
     if (playerCount < 2) {
       setError(`Cannot start round: Need at least 2 players (currently have ${playerCount})`);
       return;
     }
 
-    // Don't allow starting if game has ended
-    if (gameState.isEnded) {
+    if (gameState?.isEnded) {
       setError('Game has ended. Cannot start new round.');
       return;
     }
 
-    // Don't allow starting if round is active
-    if (gameState.isActive) {
+    if (gameState?.isActive) {
       setError('Cannot start new round while current round is active.');
       return;
     }
 
-    // Don't allow starting if max rounds reached
-    if (gameState.currentRound >= gameState.totalRounds) {
+    if ((gameState?.currentRound ?? 0) >= (gameState?.totalRounds ?? 0)) {
       setError('Maximum rounds reached. Cannot start new round.');
       return;
     }
 
-    // If it's the first round, allow starting without rivals (they'll be auto-assigned)
-    if (gameState.currentRound === 0) {
+    if ((gameState?.currentRound ?? 0) === 0) {
       startRound();
       return;
     }
 
-    // For subsequent rounds, check if all players have rivals
-    const playersWithoutRivals = Object.keys(gameState.players).filter(
-      playerName => !gameState.rivalries[playerName] || gameState.rivalries[playerName].length === 0
+    const playersWithoutRivals = Object.keys(gameState?.players || {}).filter(
+      playerName => !(gameState?.rivalries?.[playerName]?.length ?? 0)
     );
 
     if (playersWithoutRivals.length > 0) {
@@ -118,7 +110,7 @@ const AdminDashboard: React.FC = () => {
 
   const handleEndGame = () => {
     if (window.confirm('Are you sure you want to end the game? This will end the current round and show final statistics to all players.')) {
-      if (gameState.isActive) {
+      if (gameState?.isActive) {
         endCurrentRound();
       }
       endGame();
@@ -128,11 +120,11 @@ const AdminDashboard: React.FC = () => {
 
   const calculatePlayerStats = () => {
     const stats: Record<string, PlayerStats> = {};
-    const players = Object.entries(gameState.players);
+    const players = Object.entries(gameState?.players || {});
 
     players.forEach(([playerId, player]) => {
-      const currentBid = gameState.roundBids[playerId];
-      const roundHistory = gameState.roundHistory || [];
+      const currentBid = gameState?.roundBids?.[playerId];
+      const roundHistory = gameState?.roundHistory || [];
       
       // Calculate profits and market shares from round history
       const roundData = roundHistory.map(round => ({
@@ -171,9 +163,9 @@ const AdminDashboard: React.FC = () => {
     return stats;
   };
 
-  const isLastRound = gameState.currentRound >= gameState.totalRounds;
-  const isFinalRound = gameState.currentRound === gameState.totalRounds;
-  const isGameEnded = gameState.isEnded;
+  const isLastRound = (gameState?.currentRound ?? 0) >= (gameState?.totalRounds ?? 0);
+  const isFinalRound = (gameState?.currentRound ?? 0) === (gameState?.totalRounds ?? 0);
+  const isGameEnded = gameState?.isEnded;
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5', paddingBottom: '50px' }}>
@@ -189,7 +181,7 @@ const AdminDashboard: React.FC = () => {
           <div>
             {/* Round Controls */}
             <div style={{ marginTop: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
-              {!gameState.hasGameStarted ? (
+              {!gameState?.hasGameStarted ? (
                 <button
                   onClick={handleStartGame}
                   style={{
@@ -210,7 +202,7 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         {/* Game Configuration Form */}
-        {!gameState.hasGameStarted && (
+        {!gameState?.hasGameStarted && (
           <div style={{
             backgroundColor: 'white',
             padding: '20px',
@@ -302,7 +294,7 @@ const AdminDashboard: React.FC = () => {
         )}
 
         {/* Game Status Display */}
-        {gameState.hasGameStarted && (
+        {gameState?.hasGameStarted && (
           <div style={{
             backgroundColor: 'white',
             padding: '20px',
@@ -312,23 +304,23 @@ const AdminDashboard: React.FC = () => {
             <h2 style={{ marginBottom: '20px' }}>Game Status</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' }}>
               <div>
-                <strong>Current Round:</strong> {gameState.currentRound === 0 ? 'Round 1 (Not Started)' : gameState.currentRound}
+                <strong>Current Round:</strong> {(gameState?.currentRound ?? 0) === 0 ? 'Round 1 (Not Started)' : (gameState?.currentRound ?? 0)}
               </div>
               <div>
-                <strong>Total Rounds:</strong> {gameState.totalRounds}
+                <strong>Total Rounds:</strong> {(gameState?.totalRounds ?? 0)}
               </div>
               <div>
-                <strong>Round Status:</strong> {gameState.isActive ? 'Active' : 'Inactive'}
+                <strong>Round Status:</strong> {(gameState?.isActive ? 'Active' : 'Inactive')}
               </div>
               <div>
-                <strong>Players:</strong> {Object.keys(gameState.players).length} / {gameState.maxPlayers}
+                <strong>Players:</strong> {Object.keys(gameState?.players || {}).length} / {(gameState?.maxPlayers ?? 0)}
               </div>
             </div>
           </div>
         )}
 
         {/* Game Controls */}
-        {gameState.hasGameStarted && (
+        {gameState?.hasGameStarted && (
           <div style={{
             backgroundColor: '#f8f9fa',
             padding: '20px',
@@ -352,12 +344,12 @@ const AdminDashboard: React.FC = () => {
                 color: '#495057',
                 fontWeight: 500
               }}>
-                {isGameEnded ? (
+                {(gameState?.isEnded ? (
                   <span style={{ color: '#dc3545' }}>Game Ended</span>
                 ) : (
                   <>
-                    Round {gameState.currentRound} of {gameState.totalRounds}
-                    {isFinalRound && (
+                    Round {(gameState?.currentRound ?? 0)} of {(gameState?.totalRounds ?? 0)}
+                    {(isFinalRound && (
                       <span style={{ 
                         color: '#dc3545',
                         marginLeft: '10px',
@@ -366,17 +358,17 @@ const AdminDashboard: React.FC = () => {
                       }}>
                         (Final Round)
                       </span>
-                    )}
+                    ))}
                   </>
-                )}
+                ))}
               </div>
-              {!isGameEnded && (
+              {!gameState?.isEnded && (
                 <div style={{
                   fontSize: '16px',
-                  color: gameState.isActive ? '#28a745' : '#6c757d',
+                  color: (gameState?.isActive ? '#28a745' : '#6c757d'),
                   fontWeight: 500
                 }}>
-                  {gameState.isActive ? 'Round in Progress' : 'Round Ended'}
+                  {(gameState?.isActive ? 'Round in Progress' : 'Round Ended')}
                 </div>
               )}
             </div>
@@ -390,46 +382,46 @@ const AdminDashboard: React.FC = () => {
                 alignItems: 'center',
                 gap: '15px'
               }}>
-                {!isGameEnded && (
+                {!gameState?.isEnded && (
                   <div style={{ display: 'flex', gap: '10px' }}>
-                    {!gameState.isActive && (
+                    {!gameState?.isActive && (
                       <button
                         onClick={handleStartRound}
-                        disabled={isLastRound && !gameState.isActive}
+                        disabled={(isLastRound && !gameState?.isActive)}
                         style={{
                           padding: '12px 24px',
-                          backgroundColor: isLastRound && !gameState.isActive ? '#6c757d' : '#28a745',
+                          backgroundColor: (isLastRound && !gameState?.isActive ? '#6c757d' : '#28a745'),
                           color: 'white',
                           border: 'none',
                           borderRadius: '4px',
-                          cursor: isLastRound && !gameState.isActive ? 'not-allowed' : 'pointer',
+                          cursor: (isLastRound && !gameState?.isActive ? 'not-allowed' : 'pointer'),
                           fontSize: '14px'
                         }}
                       >
                         Start Next Round
                       </button>
                     )}
-                    {gameState.isActive && (
+                    {(gameState?.isActive && (
                       <button
                         onClick={endCurrentRound}
-                        disabled={Object.keys(gameState.players).length === 0}
+                        disabled={Object.keys(gameState?.players || {}).length === 0}
                         style={{
                           padding: '12px 24px',
                           backgroundColor: '#dc3545',
                           color: 'white',
                           border: 'none',
                           borderRadius: '4px',
-                          cursor: Object.keys(gameState.players).length === 0 ? 'not-allowed' : 'pointer',
+                          cursor: Object.keys(gameState?.players || {}).length === 0 ? 'not-allowed' : 'pointer',
                           fontSize: '14px',
-                          opacity: Object.keys(gameState.players).length === 0 ? '0.65' : '1'
+                          opacity: Object.keys(gameState?.players || {}).length === 0 ? '0.65' : '1'
                         }}
                       >
-                        End Round {gameState.currentRound}
+                        End Round {(gameState?.currentRound ?? 0)}
                       </button>
-                    )}
+                    ))}
                   </div>
                 )}
-                {!isGameEnded && !isFinalRound && (
+                {!gameState?.isEnded && !isFinalRound && (
                   <button
                     onClick={handleEndGame}
                     style={{
@@ -451,7 +443,7 @@ const AdminDashboard: React.FC = () => {
         )}
 
         {/* Player Tracking Table */}
-        {gameState.hasGameStarted && (
+        {gameState?.hasGameStarted && (
           <div style={{
             backgroundColor: 'white',
             padding: '20px',
@@ -464,17 +456,17 @@ const AdminDashboard: React.FC = () => {
         )}
 
         {/* Rivalry Table */}
-        {gameState.hasGameStarted && (
+        {gameState?.hasGameStarted && (
           <div style={{
             backgroundColor: 'white',
             padding: '20px',
             borderRadius: '8px',
             marginBottom: '20px',
-            opacity: gameState.currentRound > 0 ? 0.7 : 1,
-            pointerEvents: gameState.currentRound > 0 ? 'none' : 'auto'
+            opacity: (gameState?.currentRound ?? 0) > 0 ? 0.7 : 1,
+            pointerEvents: (gameState?.currentRound ?? 0) > 0 ? 'none' : 'auto'
           }}>
             <div style={{ position: 'relative' }}>
-              {gameState.currentRound > 0 && (
+              {(gameState?.currentRound ?? 0) > 0 && (
                 <div style={{
                   position: 'absolute',
                   top: '50%',
@@ -496,7 +488,7 @@ const AdminDashboard: React.FC = () => {
         )}
 
         {/* Game Summary */}
-        {gameState.hasGameStarted && (
+        {gameState?.hasGameStarted && (
           <div style={{
             backgroundColor: 'white',
             padding: '30px',

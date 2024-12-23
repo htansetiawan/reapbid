@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { StorageFactory, StorageType } from '../storage/StorageFactory';
 
 export interface Player {
   name: string;
@@ -79,10 +80,6 @@ const initialGameState: GameState = {
   rivalries: {}
 };
 
-const GAME_STATE_KEY = 'gameState';
-const ROUND_HISTORY_KEY = 'roundHistory';
-const PLAYERS_KEY = 'players';
-
 const DEFAULT_ALPHA = 0.1; // Default price sensitivity
 const DEFAULT_MARKET_SIZE = 1000; // Default market size
 
@@ -121,527 +118,170 @@ export const useGame = () => {
 };
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [gameState, setGameState] = useState<GameState>(() => {
-    const savedState = localStorage.getItem(GAME_STATE_KEY);
-    if (savedState) {
-      try {
-        const parsed = JSON.parse(savedState);
-        console.log('Loaded game state from localStorage:', parsed);
-        return parsed;
-      } catch (e) {
-        console.error('Error parsing saved game state:', e);
-        return initialGameState;
-      }
-    }
-    return initialGameState;
-  });
+  const [gameState, setGameState] = useState<GameState>(initialGameState);
+  const storage = StorageFactory.getStorage(StorageType.Firebase);
 
-  const [roundTimer, setRoundTimer] = useState<NodeJS.Timer | null>(null);
-
-  // Effect to sync state with localStorage
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === GAME_STATE_KEY && e.newValue) {
-        try {
-          const newState = JSON.parse(e.newValue);
-          console.log('Storage event received:', {
-            roundHistory: newState.roundHistory?.length || 0,
-            currentRound: newState.currentRound,
-            isActive: newState.isActive
-          });
-          // Just use the new state directly, don't merge histories
-          setGameState(newState);
-        } catch (error) {
-          console.error('Error parsing storage event:', error);
-        }
+    // Initialize game state from storage
+    const initializeGameState = async () => {
+      const storedState = await storage.getGameState();
+      if (storedState) {
+        setGameState(storedState);
       }
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    // Subscribe to game state changes
+    const unsubscribe = storage.subscribeToGameState((newState) => {
+      setGameState(newState);
+    });
+
+    initializeGameState();
+
+    // Cleanup subscription on unmount
+    return () => {
+      unsubscribe();
+      storage.cleanup();
+    };
   }, []);
 
-  // Save game state to localStorage whenever it changes
-  useEffect(() => {
-    try {
-      console.log('Saving state to localStorage:', {
-        roundHistory: gameState.roundHistory?.length || 0,
-        currentRound: gameState.currentRound
-      });
-      localStorage.setItem(GAME_STATE_KEY, JSON.stringify(gameState));
-    } catch (error) {
-      console.error('Error saving state:', error);
-    }
-  }, [gameState]);
-
-  // Effect to handle game state updates
-  useEffect(() => {
-    console.log('Game state updated:', {
-      hasGameStarted: gameState.hasGameStarted,
-      isActive: gameState.isActive,
-      currentRound: gameState.currentRound,
-      players: Object.keys(gameState.players),
-      roundHistory: gameState.roundHistory.length
-    });
-  }, [gameState]);
-
-  useEffect(() => {
-    return () => {
-      if (roundTimer) {
-        clearInterval(roundTimer);
-      }
-    };
-  }, [roundTimer]);
-
-  const startGame = (config: GameConfig) => {
-    console.log('Starting new game with config:', config);
-    setGameState({
+  const startGame = async (config: GameConfig) => {
+    const newState: GameState = {
       ...initialGameState,
       ...config,
       hasGameStarted: true,
-      isActive: false,
-      currentRound: 0,
-      roundHistory: [] // Ensure clean round history on new game
-    });
+      isActive: true,
+    };
+    await storage.updateGameState(newState);
   };
 
-  const startRound = () => {
-    setGameState(prevState => {
-      // Check minimum player count
-      const playerCount = Object.keys(prevState.players).length;
-      if (playerCount < 2) {
-        console.log('Cannot start round: insufficient players');
-        return prevState;
-      }
-
-      // Don't start if game has ended or round is already active
-      if (prevState.isEnded || prevState.isActive) {
-        console.log('Cannot start round: game ended or round active');
-        return prevState;
-      }
-
-      // Don't start if we've reached max rounds
-      if (prevState.currentRound >= prevState.totalRounds) {
-        console.log('Cannot start round: max rounds reached');
-        return prevState;
-      }
-
-      // If this is the first round and no rivals are assigned, auto-assign them
-      if (prevState.currentRound === 0 && Object.keys(prevState.rivalries).length === 0) {
-        console.log('First round with no rivals - auto-assigning rivals');
-        const playerNames = Object.keys(prevState.players);
-        const rivalries: Record<string, string[]> = {};
-        
-        // Shuffle player names
-        const shuffledPlayers = [...playerNames].sort(() => Math.random() - 0.5);
-        
-        // Assign rivals in pairs
-        for (let i = 0; i < shuffledPlayers.length; i += 2) {
-          const player1 = shuffledPlayers[i];
-          const player2 = shuffledPlayers[i + 1];
-          if (player1 && player2) {
-            rivalries[player1] = [player2];
-            rivalries[player2] = [player1];
-          }
-        }
-        
-        console.log('Auto-assigned rivalries:', rivalries);
-        
-        return {
-          ...prevState,
-          isActive: true,
-          currentRound: prevState.currentRound + 1,
-          roundStartTime: Date.now(),
-          roundBids: {},
-          rivalries
-        };
-      }
-
-      // Normal round start without rival assignment
-      return {
-        ...prevState,
-        isActive: true,
-        currentRound: prevState.currentRound + 1,
-        roundStartTime: Date.now(),
-        roundBids: {},
-        players: Object.fromEntries(
-          Object.entries(prevState.players).map(([name, player]) => [
-            name,
-            { ...player, hasSubmittedBid: false, currentBid: null }
-          ])
-        )
-      };
-    });
+  const startRound = async () => {
+    const newState = {
+      ...gameState,
+      isActive: true,
+      currentRound: gameState.currentRound + 1,
+      roundStartTime: Date.now(),
+      roundBids: {},
+      players: Object.fromEntries(
+        Object.entries(gameState.players).map(([name, player]) => [
+          name,
+          { ...player, hasSubmittedBid: false, currentBid: null }
+        ])
+      )
+    };
+    await storage.updateGameState(newState);
   };
 
-  const endCurrentRound = () => {
-    setGameState(prevState => {
-      // Get all players and their rivals
-      const allPlayers = Object.keys(prevState.players);
-      const marketShares: Record<string, number> = {};
-      const profits: Record<string, number> = {};
-      const roundBids: Record<string, number> = {};
+  const endCurrentRound = async () => {
+    // Get all players and their rivals with safe accessors
+    const allPlayers = Object.keys(gameState?.players || {});
+    const marketShares: Record<string, number> = {};
+    const profits: Record<string, number> = {};
+    const roundBids: Record<string, number> = {};
 
-      // Initialize all players with 0 bids and market shares
-      allPlayers.forEach(player => {
-        roundBids[player] = 0;
+    // Initialize all players with 0 bids and market shares
+    allPlayers.forEach(player => {
+      roundBids[player] = 0;
+      marketShares[player] = 0;
+      profits[player] = 0;
+    });
+
+    // Update bids for players who submitted them
+    Object.entries(gameState?.roundBids || {}).forEach(([player, bid]) => {
+      roundBids[player] = bid;
+    });
+
+    // First pass: Calculate market shares for each player and their rivals
+    allPlayers.forEach(player => {
+      const rivals = gameState?.rivalries?.[player] || [];
+      if (rivals.length === 0) return;
+
+      const playerBid = roundBids[player];
+      const rivalBids = rivals.map(rival => roundBids[rival]);
+      
+      if (playerBid === 0) {
         marketShares[player] = 0;
-        profits[player] = 0;
-      });
-
-      // Update bids for players who submitted them
-      Object.entries(prevState.roundBids).forEach(([player, bid]) => {
-        roundBids[player] = bid;
-      });
-
-      // First pass: Calculate market shares for each player and their rivals
-      allPlayers.forEach(player => {
-        const rivals = prevState.rivalries[player] || [];
-        if (rivals.length === 0) return;
-
-        const playerBid = roundBids[player];
-        const rivalBids = rivals.map(rival => roundBids[rival]);
-        
-        if (playerBid === 0) {
-          // Player didn't bid, gets 0% market share
-          marketShares[player] = 0;
-          // Rivals who bid split the market share proportionally
-          const biddingRivals = rivals.filter(rival => roundBids[rival] > 0);
-          if (biddingRivals.length > 0) {
-            const totalRivalBids = biddingRivals.reduce((sum, rival) => sum + roundBids[rival], 0);
-            biddingRivals.forEach(rival => {
-              marketShares[rival] = roundBids[rival] / totalRivalBids;
-            });
-          }
-        } else {
-          // Player bid, calculate market share
-          const allBids = [playerBid, ...rivalBids].filter(bid => bid > 0);
-          if (allBids.length === 1) {
-            // Only this player bid
-            marketShares[player] = 1;
-          } else {
-            // Multiple players bid, calculate shares
-            const alpha = DEFAULT_ALPHA;
-            marketShares[player] = calculateMarketShare(playerBid, allBids, alpha);
-            rivals.forEach(rival => {
-              if (roundBids[rival] > 0) {
-                marketShares[rival] = calculateMarketShare(roundBids[rival], allBids, alpha);
-              }
-            });
-          }
-        }
-      });
-
-      // Second pass: Calculate profits and opportunity costs
-      const marketSize = DEFAULT_MARKET_SIZE;
-      allPlayers.forEach(player => {
-        const rivals = prevState.rivalries[player] || [];
-        if (rivals.length === 0) return;
-
-        const playerBid = roundBids[player];
-        
-        if (playerBid === 0) {
-          // Player didn't bid, calculate opportunity cost from all rivals' profits
-          const rivalsProfits = rivals.map(rival => {
-            if (roundBids[rival] === 0) return 0;
-            return calculateProfit(roundBids[rival], marketShares[rival], prevState.costPerUnit, marketSize);
-          });
-          const totalRivalProfit = rivalsProfits.reduce((sum, profit) => sum + profit, 0);
-          profits[player] = -totalRivalProfit; // Negative profit equal to sum of rivals' profits
-        } else {
-          // Player bid, calculate normal profit
-          profits[player] = calculateProfit(playerBid, marketShares[player], prevState.costPerUnit, marketSize);
-        }
-      });
-
-      // Create round result
-      const roundResult: RoundResult = {
-        round: prevState.currentRound,
-        bids: roundBids,
-        marketShares,
-        profits,
-        timestamp: Date.now()
-      };
-
-      console.log('Ending round:', {
-        currentRound: prevState.currentRound,
-        bids: roundBids,
-        marketShares,
-        profits
-      });
-
-      const newState = {
-        ...prevState,
-        isActive: false,
-        roundStartTime: null,
-        roundHistory: [...(prevState.roundHistory || []), roundResult],
-        roundBids: {},
-        players: Object.fromEntries(
-          Object.entries(prevState.players).map(([name, player]) => [
-            name,
-            { ...player, hasSubmittedBid: false, currentBid: null }
-          ])
-        ),
-        isEnded: prevState.currentRound >= prevState.totalRounds
-      };
-
-      return newState;
-    });
-  };
-
-  const registerPlayer = (playerName: string) => {
-    console.log('Registering player:', playerName);
-
-    if (gameState.players[playerName]) {
-      console.error('Player already exists:', playerName);
-      return;
-    }
-
-    if (Object.keys(gameState.players).length >= gameState.maxPlayers) {
-      console.error('Maximum number of players reached:', gameState.maxPlayers);
-      return;
-    }
-
-    const newState = {
-      ...gameState,
-      players: {
-        ...gameState.players,
-        [playerName]: {
-          name: playerName,
-          currentBid: null,
-          hasSubmittedBid: false,
-          lastBidTime: null,
-          isTimedOut: false
-        }
+      } else {
+        const allBids = [playerBid, ...rivalBids];
+        marketShares[player] = calculateMarketShare(playerBid, allBids);
       }
-    };
-
-    console.log('Updated players:', newState.players);
-
-    localStorage.setItem(GAME_STATE_KEY, JSON.stringify(newState));
-    setGameState(newState);
-
-    // Broadcast state change
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: GAME_STATE_KEY,
-      newValue: JSON.stringify(newState),
-      oldValue: JSON.stringify(gameState)
-    }));
-  };
-
-  const unregisterPlayer = (playerName: string) => {
-    console.log('Unregistering player:', playerName);
-
-    const { [playerName]: removedPlayer, ...remainingPlayers } = gameState.players;
-    const { [playerName]: removedBid, ...remainingBids } = gameState.roundBids;
-
-    const newState = {
-      ...gameState,
-      players: remainingPlayers,
-      roundBids: remainingBids
-    };
-
-    console.log('Updated players:', newState.players);
-
-    localStorage.setItem(GAME_STATE_KEY, JSON.stringify(newState));
-    setGameState(newState);
-
-    // Broadcast state change
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: GAME_STATE_KEY,
-      newValue: JSON.stringify(newState),
-      oldValue: JSON.stringify(gameState)
-    }));
-  };
-
-  const timeoutPlayer = (playerName: string) => {
-    console.log('Timing out player:', playerName);
-
-    if (!gameState.players[playerName]) {
-      console.error('Player not found:', playerName);
-      return;
-    }
-
-    const newState = {
-      ...gameState,
-      players: {
-        ...gameState.players,
-        [playerName]: {
-          ...gameState.players[playerName],
-          isTimedOut: true
-        }
-      }
-    };
-
-    console.log('Updated player state:', newState.players[playerName]);
-
-    localStorage.setItem(GAME_STATE_KEY, JSON.stringify(newState));
-    setGameState(newState);
-
-    // Broadcast state change
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: GAME_STATE_KEY,
-      newValue: JSON.stringify(newState),
-      oldValue: JSON.stringify(gameState)
-    }));
-  };
-
-  const unTimeoutPlayer = (playerName: string) => {
-    console.log('Removing timeout for player:', playerName);
-
-    if (!gameState.players[playerName]) {
-      console.error('Player not found:', playerName);
-      return;
-    }
-
-    const newState = {
-      ...gameState,
-      players: {
-        ...gameState.players,
-        [playerName]: {
-          ...gameState.players[playerName],
-          isTimedOut: false
-        }
-      }
-    };
-
-    console.log('Updated player state:', newState.players[playerName]);
-
-    localStorage.setItem(GAME_STATE_KEY, JSON.stringify(newState));
-    setGameState(newState);
-    
-    // Broadcast state change
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: GAME_STATE_KEY,
-      newValue: JSON.stringify(newState),
-      oldValue: JSON.stringify(gameState)
-    }));
-  };
-
-  const submitBid = (playerName: string, bid: number) => {
-    console.log(`Submitting bid for ${playerName}:`, bid);
-    setGameState(prevState => {
-      if (!prevState.isActive) {
-        console.log('Cannot submit bid: round is not active');
-        return prevState;
-      }
-
-      if (bid < prevState.minBid || bid > prevState.maxBid) {
-        console.log('Bid out of range:', bid);
-        return prevState;
-      }
-
-      const newState = {
-        ...prevState,
-        roundBids: {
-          ...prevState.roundBids,
-          [playerName]: bid
-        },
-        players: {
-          ...prevState.players,
-          [playerName]: {
-            ...prevState.players[playerName],
-            currentBid: bid,
-            hasSubmittedBid: true,
-            lastBidTime: Date.now()
-          }
-        }
-      };
-
-      console.log('Updated round bids:', newState.roundBids);
-      return newState;
-    });
-  };
-
-  const resetGame = () => {
-    console.log('Resetting game');
-    localStorage.removeItem(GAME_STATE_KEY);
-    localStorage.removeItem(ROUND_HISTORY_KEY);
-    localStorage.removeItem('gameConfig');
-    setGameState({
-      ...initialGameState,
-      roundHistory: []
     });
 
-    // Broadcast state change
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: GAME_STATE_KEY,
-      newValue: JSON.stringify(initialGameState),
-      oldValue: JSON.stringify(gameState)
-    }));
+    // Second pass: Calculate profits based on market shares
+    allPlayers.forEach(player => {
+      if (marketShares[player] > 0) {
+        profits[player] = calculateProfit(
+          roundBids[player],
+          marketShares[player],
+          gameState?.costPerUnit ?? 0
+        );
+      }
+    });
+
+    // Create round result
+    const roundResult: RoundResult = {
+      round: gameState?.currentRound ?? 0,
+      bids: roundBids,
+      marketShares,
+      profits,
+      timestamp: Date.now()
+    };
+
+    // Update game state
+    const newState = {
+      ...gameState,
+      isActive: false,
+      roundStartTime: null,
+      roundHistory: [...(gameState?.roundHistory || []), roundResult]
+    };
+
+    await storage.updateGameState(newState);
   };
 
-  const endGame = () => {
-    console.log('Ending game');
-
+  const endGame = async () => {
     const newState = {
       ...gameState,
       isActive: false,
       isEnded: true
     };
-
-    localStorage.setItem(GAME_STATE_KEY, JSON.stringify(newState));
-    setGameState(newState);
-
-    // Broadcast state change
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: GAME_STATE_KEY,
-      newValue: JSON.stringify(newState),
-      oldValue: JSON.stringify(gameState)
-    }));
+    await storage.updateGameState(newState);
   };
 
-  const extendRoundTime = (additionalSeconds: number) => {
-    console.log('Extending round time by:', additionalSeconds, 'seconds');
-    
-    if (!gameState.isActive || !gameState.roundStartTime) {
-      console.error('Cannot extend time: no active round');
-      return;
-    }
-
-    // Calculate new round time limit
-    const newTimeLimit = gameState.roundTimeLimit + additionalSeconds;
-    console.log('New round time limit:', newTimeLimit);
-
-    const newState = {
-      ...gameState,
-      roundTimeLimit: newTimeLimit
+  const registerPlayer = async (playerName: string) => {
+    const playerData: Player = {
+      name: playerName,
+      currentBid: null,
+      hasSubmittedBid: false,
+      lastBidTime: null,
     };
-
-    console.log('Updating state with extended time:', {
-      oldLimit: gameState.roundTimeLimit,
-      newLimit: newTimeLimit,
-      isActive: newState.isActive,
-      roundStartTime: newState.roundStartTime
-    });
-
-    localStorage.setItem(GAME_STATE_KEY, JSON.stringify(newState));
-    setGameState(newState);
-
-    // Broadcast state change
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: GAME_STATE_KEY,
-      newValue: JSON.stringify(newState),
-      oldValue: JSON.stringify(gameState)
-    }));
+    await storage.addPlayer(playerName, playerData);
   };
 
-  const updateRivalries = (rivalries: Record<string, string[]>) => {
-    console.log('Updating rivalries:', rivalries);
-    const newState = {
-      ...gameState,
-      rivalries
-    };
+  const unregisterPlayer = async (playerName: string) => {
+    await storage.removePlayer(playerName);
+  };
 
-    localStorage.setItem(GAME_STATE_KEY, JSON.stringify(newState));
-    setGameState(newState);
-    
-    // Broadcast state change
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: GAME_STATE_KEY,
-      newValue: JSON.stringify(newState),
-      oldValue: JSON.stringify(gameState)
-    }));
+  const timeoutPlayer = async (playerName: string) => {
+    await storage.timeoutPlayer(playerName);
+  };
+
+  const unTimeoutPlayer = async (playerName: string) => {
+    await storage.unTimeoutPlayer(playerName);
+  };
+
+  const submitBid = async (playerName: string, bid: number) => {
+    await storage.submitBid(playerName, bid);
+  };
+
+  const resetGame = async () => {
+    await storage.resetGame();
+  };
+
+  const extendRoundTime = async (additionalSeconds: number) => {
+    await storage.extendRoundTime(additionalSeconds);
+  };
+
+  const updateRivalries = async (rivalries: Record<string, string[]>) => {
+    await storage.updateRivalries(rivalries);
   };
 
   return (

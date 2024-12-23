@@ -1,7 +1,7 @@
 import { ref, get, set, onValue, off, update } from 'firebase/database';
 import { database } from '../firebase/config';
 import { StorageAdapter } from './StorageAdapter';
-import { GameState } from '../context/GameContext';
+import { GameState, Player } from '../context/GameContext';
 
 export class FirebaseStorageAdapter implements StorageAdapter {
   private gameRef = ref(database, 'games/current');
@@ -46,7 +46,7 @@ export class FirebaseStorageAdapter implements StorageAdapter {
     return unsubscribe;
   }
 
-  async addPlayer(playerName: string, playerData: any): Promise<void> {
+  async addPlayer(playerName: string, playerData: Player): Promise<void> {
     try {
       const playerRef = ref(database, `games/current/players/${playerName}`);
       await set(playerRef, playerData);
@@ -66,7 +66,7 @@ export class FirebaseStorageAdapter implements StorageAdapter {
     }
   }
 
-  async updatePlayer(playerName: string, playerData: any): Promise<void> {
+  async updatePlayer(playerName: string, playerData: Partial<Player>): Promise<void> {
     try {
       const playerRef = ref(database, `games/current/players/${playerName}`);
       await update(playerRef, playerData);
@@ -76,12 +76,59 @@ export class FirebaseStorageAdapter implements StorageAdapter {
     }
   }
 
-  async updateRound(roundNumber: number, roundData: any): Promise<void> {
+  async timeoutPlayer(playerName: string): Promise<void> {
+    await this.updatePlayer(playerName, { isTimedOut: true });
+  }
+
+  async unTimeoutPlayer(playerName: string): Promise<void> {
+    await this.updatePlayer(playerName, { isTimedOut: false });
+  }
+
+  async submitBid(playerName: string, bid: number): Promise<void> {
     try {
-      const roundRef = ref(database, `games/current/roundHistory/${roundNumber}`);
-      await set(roundRef, roundData);
+      const updates: any = {};
+      updates[`games/current/roundBids/${playerName}`] = bid;
+      updates[`games/current/players/${playerName}`] = {
+        currentBid: bid,
+        hasSubmittedBid: true,
+        lastBidTime: Date.now()
+      };
+      await update(ref(database), updates);
     } catch (error) {
-      console.error('Error updating round:', error);
+      console.error('Error submitting bid:', error);
+      throw error;
+    }
+  }
+
+  async resetGame(): Promise<void> {
+    try {
+      await set(this.gameRef, null);
+    } catch (error) {
+      console.error('Error resetting game:', error);
+      throw error;
+    }
+  }
+
+  async extendRoundTime(additionalSeconds: number): Promise<void> {
+    try {
+      const snapshot = await get(this.gameRef);
+      const currentState = snapshot.val() as GameState;
+      if (!currentState) return;
+
+      await update(this.gameRef, {
+        roundTimeLimit: currentState.roundTimeLimit + additionalSeconds
+      });
+    } catch (error) {
+      console.error('Error extending round time:', error);
+      throw error;
+    }
+  }
+
+  async updateRivalries(rivalries: Record<string, string[]>): Promise<void> {
+    try {
+      await update(this.gameRef, { rivalries });
+    } catch (error) {
+      console.error('Error updating rivalries:', error);
       throw error;
     }
   }

@@ -46,18 +46,18 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
   const [remainingTime, setRemainingTime] = useState('--:--');
   const navigate = useNavigate();
 
-  const isGameEnded = gameState.isEnded;
-  const isFinalRound = gameState.currentRound === gameState.totalRounds;
+  const isGameEnded = gameState?.isEnded;
+  const isFinalRound = (gameState?.currentRound ?? 0) === (gameState?.totalRounds ?? 0);
 
   // Track game state changes
   useEffect(() => {
     console.log('Game state updated:', {
-      hasGameStarted: gameState.hasGameStarted,
-      isActive: gameState.isActive,
-      currentRound: gameState.currentRound,
+      hasGameStarted: gameState?.hasGameStarted,
+      isActive: gameState?.isActive,
+      currentRound: gameState?.currentRound ?? 0,
       playerName: playerName,
       isRegistered,
-      players: Object.keys(gameState.players)
+      players: Object.keys(gameState?.players || {})
     });
   }, [gameState, playerName, isRegistered]);
 
@@ -72,26 +72,26 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
   // Effect to handle game state updates
   useEffect(() => {
     console.log('BiddingInterface: Game state updated:', {
-      hasGameStarted: gameState.hasGameStarted,
-      isActive: gameState.isActive,
-      currentRound: gameState.currentRound,
+      hasGameStarted: gameState?.hasGameStarted,
+      isActive: gameState?.isActive,
+      currentRound: gameState?.currentRound ?? 0,
       playerName,
       isRegistered,
-      playerState: gameState.players[playerName],
-      roundHistory: gameState.roundHistory.length,
-      roundHistoryData: gameState.roundHistory
+      playerState: gameState?.players?.[playerName],
+      roundHistory: gameState?.roundHistory?.length ?? 0,
+      roundHistoryData: gameState?.roundHistory || []
     });
   }, [gameState, playerName, isRegistered]);
 
   useEffect(() => {
     const updateRemainingTime = () => {
-      if (!gameState.roundStartTime || !gameState.isActive) {
+      if (!gameState?.roundStartTime || !gameState?.isActive) {
         setRemainingTime('--:--');
         return;
       }
 
       const now = Date.now();
-      const endTime = gameState.roundStartTime + (gameState.roundTimeLimit * 1000);
+      const endTime = gameState.roundStartTime + ((gameState?.roundTimeLimit ?? 0) * 1000);
       const timeLeft = Math.max(0, Math.floor((endTime - now) / 1000));
       const minutes = Math.floor(timeLeft / 60);
       const seconds = timeLeft % 60;
@@ -106,12 +106,12 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
     const timer = setInterval(updateRemainingTime, 1000);
 
     return () => clearInterval(timer);
-  }, [gameState.roundStartTime, gameState.roundTimeLimit, gameState.isActive]);
+  }, [gameState?.roundStartTime, gameState?.roundTimeLimit, gameState?.isActive]);
 
   // Check if user is valid periodically
   useEffect(() => {
     const checkUserValidity = () => {
-      if (!playerName || !gameState.players[playerName]) {
+      if (!playerName || !gameState?.players?.[playerName]) {
         // User is not registered or has been unregistered
         localStorage.removeItem('playerName');
         navigate('/');
@@ -125,7 +125,7 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
     const interval = setInterval(checkUserValidity, 5000);
 
     return () => clearInterval(interval);
-  }, [playerName, gameState.players, navigate]);
+  }, [playerName, gameState?.players, navigate]);
 
   const handleRegister = () => {
     if (!playerName.trim()) {
@@ -133,8 +133,8 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
       return;
     }
 
-    if (Object.keys(gameState.players).length >= gameState.maxPlayers) {
-      setError(`Game is full (maximum ${gameState.maxPlayers} players). Please wait for the next game.`);
+    if (Object.keys(gameState?.players || {}).length >= (gameState?.maxPlayers ?? 0)) {
+      setError(`Game is full (maximum ${gameState?.maxPlayers ?? 0} players). Please wait for the next game.`);
       return;
     }
 
@@ -144,8 +144,8 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
   };
 
   // Redirect if not registered
-  if (!playerName || !gameState.players[playerName]) {
-    const isGameFull = Object.keys(gameState.players).length >= gameState.maxPlayers;
+  if (!playerName || !gameState?.players?.[playerName]) {
+    const isGameFull = Object.keys(gameState?.players || {}).length >= (gameState?.maxPlayers ?? 0);
 
     if (isGameFull) {
       return (
@@ -173,7 +173,7 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
               fontSize: '16px',
               lineHeight: '1.5'
             }}>
-              <p>Maximum number of players ({gameState.maxPlayers}) has been reached.</p>
+              <p>Maximum number of players ({gameState?.maxPlayers ?? 0}) has been reached.</p>
               <p>Thank you for your interest in participating!</p>
               <p>Please join us for the next game.</p>
             </div>
@@ -185,7 +185,7 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
               color: '#495057',
               fontSize: '14px'
             }}>
-              Current Players: {Object.keys(gameState.players).length} / {gameState.maxPlayers}
+              Current Players: {Object.keys(gameState?.players || {}).length} / {gameState?.maxPlayers ?? 0}
             </div>
           </div>
         </div>
@@ -266,13 +266,13 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
           color: '#6c757d',
           fontSize: '14px'
         }}>
-          {Object.keys(gameState.players).length} / {gameState.maxPlayers} players joined
+          {Object.keys(gameState?.players || {}).length} / {gameState?.maxPlayers ?? 0} players joined
         </div>
       </div>
     );
   }
 
-  const playerState = gameState.players[playerName] || {
+  const playerState = gameState?.players?.[playerName] || {
     name: playerName,
     currentBid: null,
     hasSubmittedBid: false,
@@ -330,12 +330,12 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
     console.log('Submitting bid:', {
       playerName,
       bid,
-      isActive: gameState.isActive,
-      currentRound: gameState.currentRound
+      isActive: gameState?.isActive,
+      currentRound: gameState?.currentRound
     });
 
-    if (bid < gameState.minBid || bid > gameState.maxBid) {
-      alert(`Bid must be between $${gameState.minBid} and $${gameState.maxBid}`);
+    if (bid < (gameState?.minBid ?? 0) || bid > (gameState?.maxBid ?? 0)) {
+      alert(`Bid must be between $${gameState?.minBid ?? 0} and $${gameState?.maxBid ?? 0}`);
       return;
     }
 
@@ -345,13 +345,13 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
 
   const canSubmitBid = () => {
     const conditions = {
-      hasGameStarted: gameState.hasGameStarted,
-      isActive: gameState.isActive,
+      hasGameStarted: gameState?.hasGameStarted,
+      isActive: gameState?.isActive,
       hasSubmittedBid: playerState.hasSubmittedBid,
       isRegistered,
       hasBidValue: bid !== null,
       playerName: !!playerName,
-      roundActive: gameState.currentRound > 0 && gameState.currentRound <= gameState.totalRounds
+      roundActive: (gameState?.currentRound ?? 0) > 0 && (gameState?.currentRound ?? 0) <= (gameState?.totalRounds ?? 0)
     };
 
     console.log('Bid submission conditions:', conditions);
@@ -371,10 +371,10 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
 
   const isInputEnabled = () => {
     const conditions = {
-      hasGameStarted: gameState.hasGameStarted,
-      isActive: gameState.isActive,
+      hasGameStarted: gameState?.hasGameStarted,
+      isActive: gameState?.isActive,
       hasSubmittedBid: playerState.hasSubmittedBid,
-      roundActive: gameState.currentRound > 0 && gameState.currentRound <= gameState.totalRounds
+      roundActive: (gameState?.currentRound ?? 0) > 0 && (gameState?.currentRound ?? 0) <= (gameState?.totalRounds ?? 0)
     };
 
     console.log('Input enabled conditions:', conditions);
@@ -383,7 +383,7 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
 
   // Helper functions for statistics
   const getRivalStats = () => {
-    if (!gameState.rivalries || !gameState.rivalries[playerName]) {
+    if (!gameState?.rivalries || !gameState?.rivalries[playerName]) {
       return [];
     }
 
@@ -421,7 +421,7 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
     };
 
     // Calculate from round history
-    const roundHistory = gameState.roundHistory || [];
+    const roundHistory = gameState?.roundHistory || [];
     const playerRoundData = roundHistory.map(round => ({
       profit: round.profits?.[playerName] || 0,
       marketShare: round.marketShares?.[playerName] || 0
@@ -448,7 +448,7 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
     stats.profit = totalProfit;
     stats.marketShare = avgMarketShare;
     stats.bestRound = bestRound || 0;
-    stats.currentBid = gameState.roundBids[playerName] || 0;
+    stats.currentBid = gameState?.roundBids?.[playerName] || 0;
 
     return (
       <div style={{
@@ -505,7 +505,7 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
             />
             <StatBox
               label="Total Rounds"
-              value={gameState.totalRounds.toString()}
+              value={(gameState?.totalRounds ?? 0).toString()}
             />
           </div>
         </div>
@@ -526,7 +526,7 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
       }}>
         <div>
           <div style={{ fontSize: '18px', marginBottom: '5px' }}>
-            Round {gameState.currentRound} of {gameState.totalRounds}
+            Round {(gameState?.currentRound ?? 0)} of {(gameState?.totalRounds ?? 0)}
             {isFinalRound && (
               <span style={{ 
                 color: '#dc3545',
@@ -542,7 +542,7 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
             Time Remaining: {remainingTime}
           </div>
         </div>
-        {gameState.isActive && (
+        {gameState?.isActive && (
           <div style={{
             backgroundColor: '#28a745',
             color: 'white',
@@ -579,7 +579,7 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
         </div>
       </div>
       {/* Round History and Statistics */}
-      {gameState.roundHistory.length > 0 && (
+      {(gameState?.roundHistory?.length ?? 0) > 0 && (
         <div style={{ marginTop: '20px' }}>
           <h3>Round History (vs Rivals)</h3>
           <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
@@ -631,7 +631,7 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
       <form onSubmit={handleBidSubmit}>
         <div style={{ marginBottom: '15px' }}>
           <label style={{ display: 'block', marginBottom: '5px' }}>
-            Your Bid (${gameState.minBid} - ${gameState.maxBid}):
+            Your Bid (${gameState?.minBid ?? 0} - ${gameState?.maxBid ?? 0}):
           </label>
           <input
             type="number"
@@ -645,8 +645,8 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
               });
               setBid(value === '' ? null : Number(value));
             }}
-            min={gameState.minBid}
-            max={gameState.maxBid}
+            min={gameState?.minBid ?? 0}
+            max={gameState?.maxBid ?? 0}
             step="0.01"
             disabled={!isInputEnabled()}
             placeholder="Enter your bid"

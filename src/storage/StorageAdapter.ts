@@ -12,9 +12,14 @@ export interface StorageAdapter {
   addPlayer(playerName: string, playerData: any): Promise<void>;
   removePlayer(playerName: string): Promise<void>;
   updatePlayer(playerName: string, playerData: any): Promise<void>;
+  timeoutPlayer(playerName: string): Promise<void>;
+  unTimeoutPlayer(playerName: string): Promise<void>;
+  submitBid(playerName: string, bid: number): Promise<void>;
   
-  // Round operations
-  updateRound(roundNumber: number, roundData: any): Promise<void>;
+  // Game operations
+  resetGame(): Promise<void>;
+  extendRoundTime(additionalSeconds: number): Promise<void>;
+  updateRivalries(rivalries: Record<string, string[]>): Promise<void>;
   
   // Cleanup
   cleanup(): void;

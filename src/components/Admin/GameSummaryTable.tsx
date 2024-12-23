@@ -84,14 +84,14 @@ const GameSummaryTable: React.FC = () => {
   const itemsPerPage = 10;
 
   console.log('GameSummaryTable render:', {
-    currentRound: gameState.currentRound,
-    roundHistory: gameState.roundHistory,
-    roundHistoryLength: gameState.roundHistory?.length || 0,
-    hasGameStarted: gameState.hasGameStarted
+    currentRound: gameState?.currentRound ?? 0,
+    roundHistory: gameState?.roundHistory || [],
+    roundHistoryLength: gameState?.roundHistory?.length ?? 0,
+    hasGameStarted: gameState?.hasGameStarted
   });
 
   // If there's no round history, show a message
-  if (!gameState.roundHistory) {
+  if (!gameState?.roundHistory) {
     console.log('No round history array found');
     return (
       <div style={{ textAlign: 'center', padding: '20px', color: '#6c757d' }}>
@@ -121,8 +121,8 @@ const GameSummaryTable: React.FC = () => {
 
   // Get all unique players across all rounds
   const allPlayers = new Set<string>();
-  gameState.roundHistory.forEach(round => {
-    Object.keys(round.bids).forEach(player => allPlayers.add(player));
+  (gameState?.roundHistory || []).forEach(round => {
+    Object.keys(round?.bids || {}).forEach(player => allPlayers.add(player));
   });
 
   console.log('GameSummaryTable - allPlayers:', Array.from(allPlayers));
@@ -137,12 +137,12 @@ const GameSummaryTable: React.FC = () => {
       averageBid: 0,
       averageMarketShare: 0
     };
-    gameState.roundHistory.forEach(round => {
-      if (round.bids[player] !== undefined) {
+    (gameState?.roundHistory || []).forEach(round => {
+      if (round?.bids?.[player] !== undefined) {
         acc[player].bids.push(round.bids[player]);
-        acc[player].marketShares.push(round.marketShares[player]);
-        acc[player].profits.push(round.profits[player]);
-        acc[player].totalProfit += round.profits[player];
+        acc[player].marketShares.push(round.marketShares?.[player] ?? 0);
+        acc[player].profits.push(round.profits?.[player] ?? 0);
+        acc[player].totalProfit += round.profits?.[player] ?? 0;
       }
     });
     // Calculate averages
@@ -162,7 +162,7 @@ const GameSummaryTable: React.FC = () => {
 
   console.log('GameSummaryTable - aggregatedData:', aggregatedData);
 
-  const rounds = ['Overall', ...Array.from({ length: gameState.roundHistory.length }, (_, i) => `Round ${i + 1}`)];
+  const rounds = ['Overall', ...Array.from({ length: (gameState?.roundHistory?.length ?? 0) }, (_, i) => `Round ${i + 1}`)];
   
   const getSortedPlayers = (players: string[], roundData?: RoundResult) => {
     return [...players].sort((a, b) => {
@@ -174,14 +174,15 @@ const GameSummaryTable: React.FC = () => {
           case 'name':
             return multiplier * a.localeCompare(b);
           case 'bid':
-            return multiplier * (aggregatedData[a].averageBid - aggregatedData[b].averageBid);
+            return multiplier * ((aggregatedData[a]?.averageBid ?? 0) - (aggregatedData[b]?.averageBid ?? 0));
           case 'marketShare':
-            return multiplier * (aggregatedData[a].averageMarketShare - aggregatedData[b].averageMarketShare);
+            return multiplier * ((aggregatedData[a]?.averageMarketShare ?? 0) - (aggregatedData[b]?.averageMarketShare ?? 0));
           case 'profit':
-            return multiplier * (aggregatedData[a].profits[aggregatedData[a].profits.length - 1] - 
-                               aggregatedData[b].profits[aggregatedData[b].profits.length - 1]);
+            const aLastProfit = aggregatedData[a]?.profits?.[aggregatedData[a]?.profits?.length - 1] ?? 0;
+            const bLastProfit = aggregatedData[b]?.profits?.[aggregatedData[b]?.profits?.length - 1] ?? 0;
+            return multiplier * (aLastProfit - bLastProfit);
           case 'totalProfit':
-            return multiplier * (aggregatedData[a].totalProfit - aggregatedData[b].totalProfit);
+            return multiplier * ((aggregatedData[a]?.totalProfit ?? 0) - (aggregatedData[b]?.totalProfit ?? 0));
           default:
             return 0;
         }
@@ -192,13 +193,13 @@ const GameSummaryTable: React.FC = () => {
           case 'name':
             return multiplier * a.localeCompare(b);
           case 'bid':
-            return multiplier * ((roundData.bids[a] || 0) - (roundData.bids[b] || 0));
+            return multiplier * ((roundData.bids?.[a] ?? 0) - (roundData.bids?.[b] ?? 0));
           case 'marketShare':
-            return multiplier * ((roundData.marketShares[a] || 0) - (roundData.marketShares[b] || 0));
+            return multiplier * ((roundData.marketShares?.[a] ?? 0) - (roundData.marketShares?.[b] ?? 0));
           case 'profit':
-            return multiplier * ((roundData.profits[a] || 0) - (roundData.profits[b] || 0));
+            return multiplier * ((roundData.profits?.[a] ?? 0) - (roundData.profits?.[b] ?? 0));
           case 'totalProfit':
-            return multiplier * (aggregatedData[a].totalProfit - aggregatedData[b].totalProfit);
+            return multiplier * ((aggregatedData[a]?.totalProfit ?? 0) - (aggregatedData[b]?.totalProfit ?? 0));
           default:
             return 0;
         }
@@ -248,25 +249,12 @@ const GameSummaryTable: React.FC = () => {
         gap: '4px',
         marginBottom: '20px',
         overflowX: 'auto',
-        padding: '4px'
+        padding: '4px',
+        borderBottom: '1px solid #dee2e6'
       }}>
         {rounds.map((round, index) => (
           <Tab
             key={index}
-            label={round}
-            isActive={activeRound === index}
-            onClick={() => {
-              setActiveRound(index);
-              setCurrentPage(1);
-            }}
-          />
-        ))}
-      </div>
-
-      <div style={{ marginBottom: '20px', borderBottom: '1px solid #dee2e6' }}>
-        {rounds.map((round, index) => (
-          <Tab
-            key={round}
             label={round}
             isActive={activeRound === index}
             onClick={() => {
@@ -327,22 +315,22 @@ const GameSummaryTable: React.FC = () => {
               <td style={{ padding: '12px', borderBottom: '1px solid #dee2e6' }}>{player}</td>
               <td style={{ padding: '12px', textAlign: 'right', borderBottom: '1px solid #dee2e6' }}>
                 {activeRound === 0
-                  ? aggregatedData[player].averageBid.toFixed(2)
-                  : (gameState.roundHistory[activeRound - 1]?.bids[player] || 0).toFixed(2)}
+                  ? aggregatedData[player]?.averageBid.toFixed(2)
+                  : (gameState.roundHistory[activeRound - 1]?.bids[player] ?? 0).toFixed(2)}
               </td>
               <td style={{ padding: '12px', textAlign: 'right', borderBottom: '1px solid #dee2e6' }}>
                 {activeRound === 0
-                  ? (aggregatedData[player].averageMarketShare * 100).toFixed(2)
-                  : ((gameState.roundHistory[activeRound - 1]?.marketShares[player] || 0) * 100).toFixed(2)}%
+                  ? (aggregatedData[player]?.averageMarketShare * 100).toFixed(2)
+                  : ((gameState.roundHistory[activeRound - 1]?.marketShares[player] ?? 0) * 100).toFixed(2)}%
               </td>
               <td style={{ padding: '12px', textAlign: 'right', borderBottom: '1px solid #dee2e6' }}>
                 {activeRound === 0
-                  ? aggregatedData[player].profits[aggregatedData[player].profits.length - 1].toFixed(2)
-                  : (gameState.roundHistory[activeRound - 1]?.profits[player] || 0).toFixed(2)}
+                  ? aggregatedData[player]?.profits[aggregatedData[player]?.profits.length - 1].toFixed(2)
+                  : (gameState.roundHistory[activeRound - 1]?.profits[player] ?? 0).toFixed(2)}
               </td>
               {activeRound === 0 && (
                 <td style={{ padding: '12px', textAlign: 'right', borderBottom: '1px solid #dee2e6' }}>
-                  {aggregatedData[player].totalProfit.toFixed(2)}
+                  {aggregatedData[player]?.totalProfit.toFixed(2)}
                 </td>
               )}
             </tr>
