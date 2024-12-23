@@ -101,7 +101,6 @@ const AdminDashboard: React.FC = () => {
     if (gameState?.isActive) {
       if ((gameState?.currentRound ?? 0) === (gameState?.totalRounds ?? 0)) {
         endCurrentRound();
-        endGame();
         setShowSummary(true);
       } else {
         endCurrentRound();
