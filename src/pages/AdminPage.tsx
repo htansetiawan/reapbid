@@ -48,9 +48,10 @@ export default function AdminPage() {
     });
   };
 
-  const handleResetGame = () => {
+  const handleResetGame = async () => {
     if (window.confirm('Are you sure you want to reset the game? This will clear all data.')) {
-      resetGame();
+      await resetGame();
+      window.location.href = '/admin';
     }
   };
 
