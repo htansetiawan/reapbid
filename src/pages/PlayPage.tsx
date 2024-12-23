@@ -24,8 +24,8 @@ const PlayPage: React.FC = () => {
   const [error, setError] = useState<string>('');
   const [hasJoined, setHasJoined] = useState(false);
 
-  // Extract name from email (everything before @)
-  const playerName = user?.email ? user.email.split('@')[0] : '';
+  // Extract name from email (everything before @) and normalize by removing dots
+  const playerName = user?.email ? user.email.split('@')[0].replace(/\./g, '') : '';
 
   const handleJoinGame = async () => {
     try {
