@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useGame } from '../../context/GameContext';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 interface BiddingInterfaceProps {
   playerName: string;
@@ -38,10 +39,10 @@ const StatBox: React.FC<StatBoxProps> = ({ label, value }) => (
 
 const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
   const { gameState, submitBid, registerPlayer } = useGame();
+  const { user } = useAuth();
   const [bid, setBid] = useState<number | null>(null);
   const [error, setError] = useState<string>('');
   const [isRegistered, setIsRegistered] = useState(false);
-  const [playerNameState, setPlayerNameState] = useState(playerName);
   const [remainingTime, setRemainingTime] = useState('--:--');
   const navigate = useNavigate();
 
@@ -54,19 +55,19 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
       hasGameStarted: gameState.hasGameStarted,
       isActive: gameState.isActive,
       currentRound: gameState.currentRound,
-      playerName: playerNameState,
+      playerName: playerName,
       isRegistered,
       players: Object.keys(gameState.players)
     });
-  }, [gameState, playerNameState, isRegistered]);
+  }, [gameState, playerName, isRegistered]);
 
   useEffect(() => {
-    if (playerNameState && !isRegistered) {
-      console.log('Registering player:', playerNameState);
-      registerPlayer(playerNameState);
+    if (playerName && !isRegistered) {
+      console.log('Registering player:', playerName);
+      registerPlayer(playerName);
       setIsRegistered(true);
     }
-  }, [playerNameState, registerPlayer, isRegistered]);
+  }, [playerName, registerPlayer, isRegistered]);
 
   // Effect to handle game state updates
   useEffect(() => {
@@ -110,7 +111,7 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
   // Check if user is valid periodically
   useEffect(() => {
     const checkUserValidity = () => {
-      if (!playerNameState || !gameState.players[playerNameState]) {
+      if (!playerName || !gameState.players[playerName]) {
         // User is not registered or has been unregistered
         localStorage.removeItem('playerName');
         navigate('/');
@@ -124,10 +125,10 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
     const interval = setInterval(checkUserValidity, 5000);
 
     return () => clearInterval(interval);
-  }, [playerNameState, gameState.players, navigate]);
+  }, [playerName, gameState.players, navigate]);
 
   const handleRegister = () => {
-    if (!playerNameState.trim()) {
+    if (!playerName.trim()) {
       setError('Please enter your name');
       return;
     }
@@ -137,13 +138,13 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
       return;
     }
 
-    registerPlayer(playerNameState);
+    registerPlayer(playerName);
     setIsRegistered(true);
     setError('');
   };
 
   // Redirect if not registered
-  if (!playerNameState || !gameState.players[playerNameState]) {
+  if (!playerName || !gameState.players[playerName]) {
     const isGameFull = Object.keys(gameState.players).length >= gameState.maxPlayers;
 
     if (isGameFull) {
@@ -231,8 +232,8 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
           </label>
           <input
             type="text"
-            value={playerNameState}
-            onChange={(e) => setPlayerNameState(e.target.value)}
+            value={playerName}
+            onChange={(e) => {}}
             placeholder="Your name"
             style={{
               width: '100%',
@@ -241,6 +242,7 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
               border: '1px solid #ced4da',
               fontSize: '16px'
             }}
+            disabled
           />
         </div>
         <button
@@ -270,8 +272,8 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
     );
   }
 
-  const playerState = gameState.players[playerNameState] || {
-    name: playerNameState,
+  const playerState = gameState.players[playerName] || {
+    name: playerName,
     currentBid: null,
     hasSubmittedBid: false,
     lastBidTime: null
@@ -381,15 +383,15 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
 
   // Helper functions for statistics
   const getRivalStats = () => {
-    if (!gameState.rivalries || !gameState.rivalries[playerNameState]) {
+    if (!gameState.rivalries || !gameState.rivalries[playerName]) {
       return [];
     }
 
-    const rivals = gameState.rivalries[playerNameState];
+    const rivals = gameState.rivalries[playerName];
     const stats = gameState.roundHistory.map(round => {
-      const playerBid = round.bids[playerNameState] || 0;
-      const playerProfit = round.profits[playerNameState] || 0;
-      const playerMarketShare = round.marketShares[playerNameState] || 0;
+      const playerBid = round.bids[playerName] || 0;
+      const playerProfit = round.profits[playerName] || 0;
+      const playerMarketShare = round.marketShares[playerName] || 0;
 
       const rivalData = rivals.map(rival => ({
         name: rival,
@@ -421,8 +423,8 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
     // Calculate from round history
     const roundHistory = gameState.roundHistory || [];
     const playerRoundData = roundHistory.map(round => ({
-      profit: round.profits?.[playerNameState] || 0,
-      marketShare: round.marketShares?.[playerNameState] || 0
+      profit: round.profits?.[playerName] || 0,
+      marketShare: round.marketShares?.[playerName] || 0
     }));
 
     // Calculate total profit
@@ -446,7 +448,7 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
     stats.profit = totalProfit;
     stats.marketShare = avgMarketShare;
     stats.bestRound = bestRound || 0;
-    stats.currentBid = gameState.roundBids[playerNameState] || 0;
+    stats.currentBid = gameState.roundBids[playerName] || 0;
 
     return (
       <div style={{
@@ -573,7 +575,7 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
           fontSize: '16px',
           marginBottom: '20px'
         }}>
-          Playing as: <span style={{ color: '#28a745', fontWeight: 500 }}>{playerNameState}</span>
+          Playing as: <span style={{ color: '#28a745', fontWeight: 500 }}>{user?.email ? user.email.split('@')[0] : ''}</span>
         </div>
       </div>
       {/* Round History and Statistics */}

@@ -1,0 +1,37 @@
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
+    "gameState": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "players": {
+        "$playerId": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          ".validate": "newData.hasChildren(['name', 'currentBid', 'hasSubmittedBid', 'lastBidTime', 'isTimedOut'])",
+          "name": {
+            ".validate": "newData.isString()"
+          },
+          "currentBid": {
+            ".validate": "newData.isNumber() || newData.val() == null"
+          },
+          "hasSubmittedBid": {
+            ".validate": "newData.isBoolean()"
+          },
+          "lastBidTime": {
+            ".validate": "newData.val() == null || newData.isNumber()"
+          },
+          "isTimedOut": {
+            ".validate": "newData.isBoolean()"
+          }
+        }
+      },
+      "roundHistory": {
+        "$roundId": {
+          ".validate": "newData.hasChildren(['roundNumber', 'bids', 'profits', 'marketShares'])"
+        }
+      }
+    }
+  }
+}
