@@ -415,7 +415,7 @@ const AdminDashboard: React.FC = () => {
                       {gameState?.isActive ? 'End Round' : 'Start Round'}
                     </Button>
                     <Button
-                      variant="outlined"
+                      variant="contained"
                       color="error"
                       onClick={handleEndGame}
                     >
