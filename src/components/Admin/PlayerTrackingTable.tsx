@@ -36,7 +36,7 @@ const getStatusColor = (status: string) => {
 const ROWS_PER_PAGE = 10;
 
 const PlayerTrackingTable: React.FC<PlayerTrackingTableProps> = ({ playerStats }) => {
-  const { gameState, unregisterPlayer, timeoutPlayer } = useGame();
+  const { gameState, unregisterPlayer, timeoutPlayer, unTimeoutPlayer } = useGame();
   const [currentPage, setCurrentPage] = useState(1);
   
   const players = Object.entries(playerStats);
@@ -57,6 +57,12 @@ const PlayerTrackingTable: React.FC<PlayerTrackingTableProps> = ({ playerStats }
   const handleTimeout = (playerName: string) => {
     if (window.confirm(`Are you sure you want to timeout ${playerName}?`)) {
       timeoutPlayer(playerName);
+    }
+  };
+
+  const handleUnTimeout = (playerName: string) => {
+    if (window.confirm(`Are you sure you want to remove timeout for ${playerName}?`)) {
+      unTimeoutPlayer(playerName);
     }
   };
 
@@ -118,20 +124,37 @@ const PlayerTrackingTable: React.FC<PlayerTrackingTableProps> = ({ playerStats }
                     display: 'flex',
                     gap: '8px'
                   }}>
-                    <button
-                      onClick={() => handleTimeout(playerId)}
-                      style={{
-                        padding: '4px 8px',
-                        backgroundColor: '#dc3545',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '12px'
-                      }}
-                    >
-                      Timeout
-                    </button>
+                    {stats.status === 'Timed Out' ? (
+                      <button
+                        onClick={() => handleUnTimeout(playerId)}
+                        style={{
+                          padding: '4px 8px',
+                          backgroundColor: '#28a745',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '12px'
+                        }}
+                      >
+                        Un-timeout
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleTimeout(playerId)}
+                        style={{
+                          padding: '4px 8px',
+                          backgroundColor: '#dc3545',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '12px'
+                        }}
+                      >
+                        Timeout
+                      </button>
+                    )}
                     <button
                       onClick={() => handleUnregister(playerId)}
                       style={{

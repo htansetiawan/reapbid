@@ -1,43 +1,65 @@
 import React from 'react';
 import { useGame } from '../../context/GameContext';
+import {
+  Button,
+} from '@mui/material';
 
 const RivalryTable: React.FC = () => {
   const { gameState, updateRivalries } = useGame();
 
+  // Can modify rivals only when round is 1 and not active
+  const canModifyRivals = (!gameState?.isActive && gameState?.currentRound === 1);
+
   const handleAutoAssignRivals = () => {
+    if (!canModifyRivals) {
+      console.warn('Rivals can only be assigned in round 1 when the round is not active');
+      return;
+    }
+
     const players = Object.keys(gameState?.players || {});
-    const shuffledPlayers = [...players].sort(() => Math.random() - 0.5);
     const newRivalries: Record<string, string[]> = {};
     
     // Initialize all players with empty arrays
-    shuffledPlayers.forEach(player => {
+    players.forEach(player => {
       newRivalries[player] = [];
     });
-    
-    // Pair players: first with last, second with second-to-last, etc.
-    for (let i = 0; i < Math.floor(shuffledPlayers.length / 2); i++) {
-      const player1 = shuffledPlayers[i];
-      const player2 = shuffledPlayers[shuffledPlayers.length - 1 - i];
-      newRivalries[player1].push(player2);
-      newRivalries[player2].push(player1);
+
+    if (players.length < 2) {
+      updateRivalries(newRivalries);
+      return;
     }
-    
-    // Handle odd number of players
-    if (shuffledPlayers.length % 2 === 1) {
-      const lastPlayer = shuffledPlayers[Math.floor(shuffledPlayers.length / 2)];
-      const randomPairIndex = Math.floor(Math.random() * Math.floor(shuffledPlayers.length / 2));
-      const player1 = shuffledPlayers[randomPairIndex];
-      const player2 = shuffledPlayers[shuffledPlayers.length - 1 - randomPairIndex];
-      
-      newRivalries[lastPlayer].push(player1, player2);
-      newRivalries[player1].push(lastPlayer);
-      newRivalries[player2].push(lastPlayer);
+
+    // Create round-robin pairings
+    for (let i = 0; i < players.length; i++) {
+      for (let j = i + 1; j < players.length; j++) {
+        const player1 = players[i];
+        const player2 = players[j];
+        newRivalries[player1].push(player2);
+        newRivalries[player2].push(player1);
+      }
+    }
+
+    // If odd number of players, ensure each player has at least one rival
+    if (players.length % 2 === 1) {
+      const playersWithoutRivals = players.filter(player => newRivalries[player].length === 0);
+      playersWithoutRivals.forEach(player => {
+        const randomRival = players.find(p => p !== player && newRivalries[p].length < 2);
+        if (randomRival) {
+          newRivalries[player].push(randomRival);
+          newRivalries[randomRival].push(player);
+        }
+      });
     }
     
     updateRivalries(newRivalries);
   };
 
   const handleUpdateRival = (player1: string, player2: string, checked: boolean) => {
+    if (!canModifyRivals) {
+      console.warn('Rivals can only be modified in round 1 when the round is not active');
+      return;
+    }
+
     const currentRivalries = { ...(gameState?.rivalries || {}) };
     
     // Ensure all players have an array, even if empty
@@ -59,14 +81,6 @@ const RivalryTable: React.FC = () => {
       currentRivalries[player2] = currentRivalries[player2].filter(p => p !== player1);
     }
     
-    console.log('RivalryTable - Updating rivalries:', {
-      currentRivalries,
-      player1,
-      player2,
-      checked,
-      beforeUpdate: gameState?.rivalries
-    });
-    
     updateRivalries(currentRivalries);
   };
 
@@ -75,35 +89,8 @@ const RivalryTable: React.FC = () => {
 
   return (
     <div>
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: '20px'
-      }}>
-        <button 
-          onClick={handleAutoAssignRivals}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#4CAF50',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            transition: 'background-color 0.2s'
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.backgroundColor = '#45a049';
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.backgroundColor = '#4CAF50';
-          }}
-        >
-          Auto-Assign Rivals
-        </button>
-      </div>
-      
+
+
       <div style={{ 
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)', 
         borderRadius: '8px',

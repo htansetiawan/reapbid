@@ -60,6 +60,7 @@ interface GameContextType {
   resetGame: () => void;
   extendRoundTime: (additionalSeconds: number) => void;
   updateRivalries: (rivalries: Record<string, string[]>) => void;
+  autoAssignRivals: () => void;
 }
 
 const initialGameState: GameState = {
@@ -67,13 +68,13 @@ const initialGameState: GameState = {
   isActive: false,
   isEnded: false,
   currentRound: 1,
-  totalRounds: 5,
+  totalRounds: 3,
   roundTimeLimit: 60,
   roundStartTime: null,
   minBid: 0,
   maxBid: 100,
   costPerUnit: 50,
-  maxPlayers: 200,
+  maxPlayers: 4,
   players: {},
   roundBids: {},
   roundHistory: [],
@@ -107,7 +108,59 @@ const calculateProfit = (
   return quantitySold * (bid - costPerUnit);
 };
 
-const GameContext = createContext<GameContextType | undefined>(undefined);
+const assignRoundRobin = (players: string[]): Record<string, string[]> => {
+  const rivalries: Record<string, string[]> = {};
+  
+  // Initialize all players with empty arrays
+  players.forEach(player => {
+    rivalries[player] = [];
+  });
+
+  if (players.length < 2) return rivalries;
+
+  // Create round-robin pairings
+  for (let i = 0; i < players.length; i++) {
+    for (let j = i + 1; j < players.length; j++) {
+      const player1 = players[i];
+      const player2 = players[j];
+      rivalries[player1].push(player2);
+      rivalries[player2].push(player1);
+    }
+  }
+
+  // If odd number of players, ensure each player has at least one rival
+  if (players.length % 2 === 1) {
+    const playersWithoutRivals = players.filter(player => rivalries[player].length === 0);
+    playersWithoutRivals.forEach(player => {
+      const randomRival = players.find(p => p !== player && rivalries[p].length < 2);
+      if (randomRival) {
+        rivalries[player].push(randomRival);
+        rivalries[randomRival].push(player);
+      }
+    });
+  }
+
+  return rivalries;
+};
+
+const defaultContextValue: GameContextType = {
+  gameState: initialGameState,
+  startGame: () => {},
+  startRound: () => {},
+  endCurrentRound: () => {},
+  endGame: () => {},
+  submitBid: () => {},
+  unregisterPlayer: () => {},
+  timeoutPlayer: () => {},
+  unTimeoutPlayer: () => {},
+  registerPlayer: () => {},
+  resetGame: () => {},
+  extendRoundTime: () => {},
+  updateRivalries: () => {},
+  autoAssignRivals: () => {}
+};
+
+const GameContext = createContext<GameContextType>(defaultContextValue);
 
 export const useGame = () => {
   const context = useContext(GameContext);
@@ -156,7 +209,24 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const startRound = async () => {
-    const newState = {
+    if (!gameState) return;
+
+    // Auto-assign rivals if it's the first round and rivals haven't been assigned
+    if (gameState.hasGameStarted && gameState.currentRound === 1 && !gameState.isActive) {
+      const allPlayers = Object.keys(gameState.players);
+      const hasRivalries = Object.values(gameState.rivalries || {}).some(rivals => rivals?.length > 0);
+
+      if (!hasRivalries && allPlayers.length >= 2) {
+        console.log('Auto-assigning rivals at start of round 1');
+        const newRivalries = assignRoundRobin(allPlayers);
+        await storage.updateGameState({
+          ...gameState,
+          rivalries: newRivalries
+        });
+      }
+    }
+
+    const updatedState = {
       ...gameState,
       isActive: true,
       roundStartTime: Date.now(),
@@ -168,7 +238,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ])
       )
     };
-    await storage.updateGameState(newState);
+    await storage.updateGameState(updatedState);
   };
 
   const endCurrentRound = async () => {
@@ -285,6 +355,25 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await storage.updateRivalries(rivalries);
   };
 
+  const autoAssignRivals = async () => {
+    if (gameState.isActive || gameState.currentRound !== 1) {
+      console.warn('Rivals can only be assigned in round 1 when the round is not active');
+      return;
+    }
+
+    const allPlayers = Object.keys(gameState.players);
+    if (allPlayers.length < 2) {
+      console.warn('Need at least 2 players to assign rivals');
+      return;
+    }
+
+    const newRivalries = assignRoundRobin(allPlayers);
+    await storage.updateGameState({
+      ...gameState,
+      rivalries: newRivalries
+    });
+  };
+
   return (
     <GameContext.Provider value={{
       gameState,
@@ -293,13 +382,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       endCurrentRound,
       endGame,
       submitBid,
-      registerPlayer,
       unregisterPlayer,
       timeoutPlayer,
       unTimeoutPlayer,
+      registerPlayer,
       resetGame,
       extendRoundTime,
-      updateRivalries
+      updateRivalries,
+      autoAssignRivals
     }}>
       {children}
     </GameContext.Provider>
