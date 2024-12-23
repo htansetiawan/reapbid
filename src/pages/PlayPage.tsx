@@ -31,13 +31,13 @@ const PlayPage: React.FC = () => {
   // Subscribe to game state changes
   useEffect(() => {
     if (gameState?.isActive && !hasJoined) {
-      setGameStatus('Round in Progress - Join Now!');
+      setGameStatus('Round in Progress!');
     } else if (!gameState?.hasGameStarted) {
-      setGameStatus('Waiting for Game to Start');
+      setGameStatus('Waiting for Next Game!');
     } else if (gameState?.isEnded) {
       setGameStatus('Game has Ended');
     } else if (!gameState?.isActive && gameState?.hasGameStarted) {
-      setGameStatus('Waiting for Next Round');
+      setGameStatus('Next Round Starting Soon!');
     }
   }, [gameState?.isActive, gameState?.hasGameStarted, gameState?.isEnded, hasJoined]);
 
@@ -162,7 +162,11 @@ const PlayPage: React.FC = () => {
               </Typography>
               {gameState?.hasGameStarted && (
                 <>
-                  <Typography variant="body1" style={{ marginBottom: '8px' }}>
+                  <Typography variant="body1" align="center" style={{
+                    marginBottom: '8px',
+                    color: 'rgba(0,0,0,0.6)',
+                    fontSize: '14px'
+                  }}>
                     Round: {getDisplayRound()} / {gameState?.totalRounds ?? 0}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 1 }}>
@@ -175,9 +179,15 @@ const PlayPage: React.FC = () => {
               )}
               {/* Game Status Alert */}
               {gameStatus && (
-                <Alert 
+                <Alert
                   severity={gameState?.isActive ? "info" : "warning"}
-                  sx={{ mt: 2 }}
+                  sx={{ 
+                    mt: 2,
+                    '& .MuiAlert-message': {
+                      width: '100%',
+                      textAlign: 'center'
+                    }
+                  }}
                 >
                   {gameStatus}
                 </Alert>

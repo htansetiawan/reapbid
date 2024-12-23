@@ -217,28 +217,30 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
           border: '1px solid rgba(0,0,0,0.12)',
           textAlign: 'center',
-          width: '100%'
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '16px'
         }}>
           <div style={{
-            fontSize: '20px',
-            color: 'rgba(0,0,0,0.87)',
-            marginBottom: '16px',
-            fontWeight: 500
-          }}>
-            Joining Game...
-          </div>
-          <div style={{
-            display: 'inline-flex',
+            backgroundColor: '#fff4e5',
+            padding: '12px 24px',
+            borderRadius: '8px',
+            display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            backgroundColor: '#ffc107',
-            color: 'rgba(0,0,0,0.87)',
-            padding: '4px 12px',
-            borderRadius: '16px',
-            fontSize: '14px',
-            fontWeight: 500
+            gap: '8px'
           }}>
-            <span>Please wait</span>
+            <span style={{
+              color: '#ed6c02',
+              fontSize: '20px'
+            }}>⚠</span>
+            <span style={{
+              color: 'rgba(0,0,0,0.87)',
+              fontWeight: 500
+            }}>
+              Starting in {remainingTime}
+            </span>
           </div>
         </div>
       </div>
@@ -781,21 +783,8 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
               color: 'rgba(0,0,0,0.87)',
               fontWeight: 500
             }}>
-              Waiting for Next Round
+              Starting in {remainingTime}
             </span>
-          </div>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            backgroundColor: '#ffc107',
-            color: 'rgba(0,0,0,0.87)',
-            padding: '4px 12px',
-            borderRadius: '16px',
-            fontSize: '14px',
-            fontWeight: 500
-          }}>
-            <span>Starting in {remainingTime}</span>
           </div>
         </div>
       </div>
