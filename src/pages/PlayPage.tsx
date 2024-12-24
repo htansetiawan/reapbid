@@ -77,30 +77,18 @@ const PlayPage: React.FC = () => {
       return;
     }
 
-    const updateGameStatus = async () => {
-      try {
-        const storage = new SessionStorageAdapter(currentSessionId);
-        const state = await storage.getGameState();
-        
-        if (!hasJoined) {
-          setGameStatus('Join Game to Start');
-        } else if (!state?.isActive) {
-          setGameStatus('Waiting for Admin to Start');
-        } else if (!state?.hasGameStarted) {
-          setGameStatus('Game Starting Soon');
-        } else if (state?.isEnded) {
-          setGameStatus('Game Ended');
-        } else {
-          setGameStatus('Game in Progress');
-        }
-      } catch (error) {
-        console.error('Error updating game status:', error);
-        setGameStatus('Error');
-      }
-    };
-
-    updateGameStatus();
-  }, [currentSessionId, hasJoined]);
+    if (!hasJoined) {
+      setGameStatus('Welcoming players');
+    } else if (gameState?.isEnded) {
+      setGameStatus('Final Results');
+    } else if (!gameState?.isActive) {
+      setGameStatus('Waiting for Admin to Start');
+    } else if (!gameState?.hasGameStarted) {
+      setGameStatus('Game Starting Soon');
+    } else {
+      setGameStatus('Bidding in Progress');
+    }
+  }, [currentSessionId, hasJoined, gameState]);
 
   // Check if player is already registered
   useEffect(() => {

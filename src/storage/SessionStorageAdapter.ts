@@ -160,6 +160,10 @@ export class SessionStorageAdapter implements StorageAdapter {
         // Calculate total players from gameState.players
         const totalPlayers = session.gameState?.players ? Object.keys(session.gameState.players).length : 0;
         
+        // Log session status for debugging
+        console.log(`Session ${id} status:`, session.status);
+        console.log(`Session ${id} gameState.isEnded:`, session.gameState?.isEnded);
+        
         return {
           id,
           name: session.name,
@@ -173,6 +177,7 @@ export class SessionStorageAdapter implements StorageAdapter {
         };
       });
     } catch (error) {
+      console.error('Error listing sessions:', error);
       return [];
     }
   }
@@ -187,10 +192,11 @@ export class SessionStorageAdapter implements StorageAdapter {
       }
 
       const session = snapshot.val();
-      const updates: any = {
-        status,
-        updatedAt: Date.now()
-      };
+      const updates: Record<string, any> = {};
+
+      // Update status at the root level
+      updates['status'] = status;
+      updates['updatedAt'] = Date.now();
 
       // If marking as completed and game state exists but isn't ended,
       // update both status and game state in one transaction
@@ -204,6 +210,7 @@ export class SessionStorageAdapter implements StorageAdapter {
       // Update everything in one transaction
       await update(sessionRef, updates);
     } catch (error) {
+      console.error('Error updating session status:', error);
       throw error;
     }
   }
