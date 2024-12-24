@@ -56,7 +56,24 @@ const SessionSelectionDialog: React.FC<SessionSelectionDialogProps> = ({
           </IconButton>
         </Box>
       </DialogTitle>
-      <DialogContent>
+      <DialogContent sx={{ 
+        maxHeight: '60vh', 
+        overflowY: 'auto',
+        '&::-webkit-scrollbar': {
+          width: '8px',
+        },
+        '&::-webkit-scrollbar-track': {
+          background: '#f1f1f1',
+          borderRadius: '4px',
+        },
+        '&::-webkit-scrollbar-thumb': {
+          background: '#888',
+          borderRadius: '4px',
+          '&:hover': {
+            background: '#555',
+          },
+        },
+      }}>
         {isLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
             <CircularProgress />
