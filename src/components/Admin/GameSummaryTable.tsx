@@ -349,7 +349,7 @@ const GameSummaryTable: React.FC = () => {
                   borderBottom: '1px solid #dee2e6',
                   textAlign: 'right',
                   color: activeRound === 0 
-                    ? aggregatedData[player]?.profits[aggregatedData[player]?.profits.length - 1] >= 0 
+                    ? aggregatedData[player]?.totalProfit >= 0 
                       ? '#2e7d32' 
                       : '#d32f2f' 
                     : (gameState.roundHistory[activeRound - 1]?.profits[player] ?? 0) >= 0 
@@ -358,7 +358,7 @@ const GameSummaryTable: React.FC = () => {
                   fontWeight: 500
                 }}>
                   {activeRound === 0
-                    ? aggregatedData[player]?.profits[aggregatedData[player]?.profits.length - 1].toFixed(2)
+                    ? aggregatedData[player]?.totalProfit.toFixed(2)
                     : (gameState.roundHistory[activeRound - 1]?.profits[player] ?? 0).toFixed(2)}
                 </td>
               </tr>
