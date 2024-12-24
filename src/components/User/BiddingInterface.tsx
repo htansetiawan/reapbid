@@ -640,6 +640,10 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
               Bid Range: ${gameState?.minBid ?? 0} - ${gameState?.maxBid ?? 100}
             </Typography>
 
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+              Cost Per Unit: ${gameState?.costPerUnit ?? 25}
+            </Typography>
+
             <Button
               type="submit"
               variant="contained"
