@@ -17,6 +17,7 @@ import { useSession } from '../context/SessionContext';
 import BiddingInterface from '../components/User/BiddingInterface';
 import SessionSelectionDialog from '../components/User/SessionSelectionDialog';
 import GameStatusDisplay from '../components/User/GameStatusDisplay';
+import { SessionStorageAdapter } from '../storage/SessionStorageAdapter';
 
 const PlayPage: React.FC = () => {
   const { user } = useAuth();
@@ -30,6 +31,7 @@ const PlayPage: React.FC = () => {
   const [hasJoined, setHasJoined] = useState(false);
   const [gameStatus, setGameStatus] = useState<string>('');
   const [showSessionDialog, setShowSessionDialog] = useState(false);
+  const [canJoinSession, setCanJoinSession] = useState(true);
 
   // Extract name from email (everything before @) and normalize by removing dots
   const playerName = user?.email ? user.email.split('@')[0].replace(/\./g, '') : '';
@@ -39,10 +41,34 @@ const PlayPage: React.FC = () => {
     const storedSession = localStorage.getItem('sessionId');
     if (storedSession) {
       selectSession(storedSession);
-    } else {
-      setShowSessionDialog(true);
+      setShowSessionDialog(false);
     }
   }, []);
+
+  // Check if player can join current session
+  useEffect(() => {
+    if (!currentSessionId) return;
+
+    const checkJoinStatus = async () => {
+      try {
+        const storage = new SessionStorageAdapter(currentSessionId);
+        const state = await storage.getGameState();
+        
+        const isRegistered = state?.players?.[playerName] !== undefined;
+        const currentPlayers = state?.players ? Object.keys(state.players).length : 0;
+        console.log('Raw state maxPlayers:', state?.maxPlayers);
+        const maxPlayers = state?.maxPlayers || 2;
+        console.log('isRegistered:', isRegistered);
+        console.log('currentPlayers:', currentPlayers);
+        console.log('maxPlayers:', maxPlayers);
+        setCanJoinSession(isRegistered || currentPlayers < maxPlayers);
+      } catch (error: any) {
+        console.error('Error checking join status:', error);
+      }
+    };
+
+    checkJoinStatus();
+  }, [currentSessionId, playerName]);
 
   // Subscribe to game state changes
   useEffect(() => {
@@ -51,30 +77,49 @@ const PlayPage: React.FC = () => {
       return;
     }
 
-    if (gameState?.isActive && !hasJoined) {
-      setGameStatus('Round in Progress!');
-    } else if (!gameState?.hasGameStarted) {
-      setGameStatus('Waiting for Next Game!');
-    } else if (gameState?.isEnded) {
-      setGameStatus('Game has Ended');
-    } else if (!gameState?.isActive && gameState?.hasGameStarted) {
-      setGameStatus('Next Round Starting Soon!');
-    }
-  }, [currentSessionId, gameState?.isActive, gameState?.hasGameStarted, gameState?.isEnded, hasJoined]);
+    const updateGameStatus = async () => {
+      try {
+        const storage = new SessionStorageAdapter(currentSessionId);
+        const state = await storage.getGameState();
+        
+        if (!hasJoined) {
+          setGameStatus('Join Game to Start');
+        } else if (!state?.isActive) {
+          setGameStatus('Waiting for Admin to Start');
+        } else if (!state?.hasGameStarted) {
+          setGameStatus('Game Starting Soon');
+        } else if (state?.isEnded) {
+          setGameStatus('Game Ended');
+        } else {
+          setGameStatus('Game in Progress');
+        }
+      } catch (error) {
+        console.error('Error updating game status:', error);
+        setGameStatus('Error');
+      }
+    };
+
+    updateGameStatus();
+  }, [currentSessionId, hasJoined]);
 
   // Check if player is already registered
   useEffect(() => {
-    console.log('Checking player registration:', {
-      playerName,
-      players: gameState?.players,
-      hasJoined,
-      isRegistered: gameState?.players?.[playerName]
-    });
+    if (!currentSessionId) return;
 
-    if (gameState?.players?.[playerName]) {
-      setHasJoined(true);
-    }
-  }, [gameState?.players, playerName]);
+    const checkRegistration = async () => {
+      try {
+        const storage = new SessionStorageAdapter(currentSessionId);
+        const state = await storage.getGameState();
+        if (state?.players?.[playerName]) {
+          setHasJoined(true);
+        }
+      } catch (error) {
+        console.error('Error checking registration:', error);
+      }
+    };
+
+    checkRegistration();
+  }, [currentSessionId, playerName]);
 
   const handleJoinGame = async () => {
     try {
@@ -88,16 +133,37 @@ const PlayPage: React.FC = () => {
     }
   };
 
-  const handleSelectSession = async (sessionId: string) => {
+  const handleSessionSelect = async (sessionId: string) => {
+    if (!playerName) {
+      setError('Please enter your name first');
+      return;
+    }
+
     try {
-      console.log('Selecting session:', sessionId);
+      setError('');
+      const storage = new SessionStorageAdapter(sessionId);
+      const gameState = await storage.getGameState();
+      
+      // Check if player is registered
+      const isPlayerRegistered = gameState?.players?.[playerName] !== undefined;
+      const currentPlayers = gameState?.players ? Object.keys(gameState.players).length : 0;
+      const maxPlayers = gameState?.maxPlayers || 10;
+      
+      if (!isPlayerRegistered && currentPlayers >= maxPlayers) {
+        setError('This session is full. Only previously registered players can join.');
+        return;
+      }
+
+      // If we get here, either:
+      // 1. The session is not full, or
+      // 2. The player is already registered
       await selectSession(sessionId);
       localStorage.setItem('sessionId', sessionId);
       setShowSessionDialog(false);
-      setError('');
-    } catch (err) {
-      console.error('Failed to select session:', err);
-      setError(err instanceof Error ? err.message : 'Failed to select session');
+      
+    } catch (error) {
+      console.error('Error checking session state:', error);
+      setError('Error joining session. Please try again.');
     }
   };
 
@@ -131,7 +197,7 @@ const PlayPage: React.FC = () => {
         <SessionSelectionDialog
           open={showSessionDialog}
           onClose={() => setShowSessionDialog(false)}
-          onSelectSession={handleSelectSession}
+          onSelectSession={handleSessionSelect}
         />
       </Container>
     );
@@ -174,10 +240,16 @@ const PlayPage: React.FC = () => {
             <Typography variant="body1" sx={{ mb: 2 }}>
               You'll be registered as: {playerName}
             </Typography>
+            {!canJoinSession && (
+              <Typography variant="body2" color="error" sx={{ mb: 2 }}>
+                This session is full. Only previously registered players can join.
+              </Typography>
+            )}
             <Button
               variant="contained"
               onClick={handleJoinGame}
               fullWidth={isMobile}
+              disabled={!canJoinSession}
             >
               Join Game
             </Button>
@@ -197,7 +269,7 @@ const PlayPage: React.FC = () => {
       <SessionSelectionDialog
         open={showSessionDialog}
         onClose={() => setShowSessionDialog(false)}
-        onSelectSession={handleSelectSession}
+        onSelectSession={handleSessionSelect}
       />
     </Container>
   );

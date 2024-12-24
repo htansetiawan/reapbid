@@ -100,13 +100,11 @@ const calculateMarketShare = (
 ): number => {
   // If player bid is 0, they get 0% market share
   if (playerBid === 0) {
-    console.log('Player bid $0, market share = 0%');
     return 0;
   }
   
   // If no rivals or all rivals bid 0, player gets 100%
   if (rivalBids.length === 0 || rivalBids.every(bid => bid === 0)) {
-    console.log('No active rivals, market share = 100%');
     return 1;
   }
   
@@ -118,13 +116,6 @@ const calculateMarketShare = (
   );
   
   const share = playerExp / totalExp;
-  console.log(`Market share calculation:
-    Player bid: $${playerBid}
-    Rival bids: ${JSON.stringify(rivalBids)}
-    Player exp: ${playerExp}
-    Total exp: ${totalExp}
-    Share: ${(share * 100).toFixed(1)}%`);
-  
   return share;
 };
 
@@ -139,12 +130,6 @@ const calculateProfit = (
   
   // Calculate profit as quantity * (price - cost)
   const profit = quantitySold * (bid - costPerUnit);
-  console.log(`Profit calculation:
-    Bid: $${bid}
-    Market share: ${(marketShare * 100).toFixed(1)}%
-    Quantity: ${quantitySold}
-    Profit: $${profit.toFixed(2)}`);
-  
   return profit;
 };
 
@@ -203,7 +188,6 @@ const assignRoundRobin = (players: string[]): Record<string, string[]> => {
 
   // 1. Shuffle the players array
   const shuffledPlayers = [...players].sort(() => Math.random() - 0.5);
-  console.log('Shuffled players:', shuffledPlayers);
 
   // 2. Match first with last, second with second last, etc.
   const midPoint = Math.floor(shuffledPlayers.length / 2);
@@ -213,7 +197,6 @@ const assignRoundRobin = (players: string[]): Record<string, string[]> => {
     
     rivalries[player1].push(player2);
     rivalries[player2].push(player1);
-    console.log(`Matched ${player1} with ${player2}`);
   }
 
   // 3. If odd number of players, match the middle player with the first pair
@@ -225,10 +208,8 @@ const assignRoundRobin = (players: string[]): Record<string, string[]> => {
     rivalries[middlePlayer].push(firstPlayer, lastPlayer);
     rivalries[firstPlayer].push(middlePlayer);
     rivalries[lastPlayer].push(middlePlayer);
-    console.log(`Matched middle player ${middlePlayer} with first pair ${firstPlayer}-${lastPlayer}`);
   }
 
-  console.log('Final rivalries:', rivalries);
   return rivalries;
 };
 
@@ -266,29 +247,24 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const storage = StorageFactory.getInstance(currentSessionId ? StorageType.Session : StorageType.Firebase);
 
   useEffect(() => {
-    if (isUpdating) {
-      console.log('Game state is already updating, skipping subscription setup');
-      return;
-    }
+    let mounted = true;
 
-    console.log('Current session ID changed:', currentSessionId);
-    
     if (!currentSessionId) {
-      console.log('No session selected, using current');
       storage.setCurrentSession('current');
     } else {
-      console.log('Setting current session:', currentSessionId);
       storage.setCurrentSession(currentSessionId);
     }
 
     // Initialize game state from storage
     const initializeGameState = async () => {
+      if (!mounted) return;
+      
       try {
         setIsUpdating(true);
-        console.log('Initializing game state...');
         const storedState = await storage.getGameState();
-        console.log('Stored state:', storedState);
         
+        if (!mounted) return;
+
         if (storedState) {
           // Ensure we preserve all fields and their proper types
           const normalizedState = {
@@ -303,56 +279,44 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             roundHistory: storedState.roundHistory || [],
             rivalries: storedState.rivalries || {}
           };
-          console.log('Setting normalized state:', normalizedState);
           setGameState(normalizedState);
         } else {
-          console.log('No stored state found, using initial state');
           setGameState(initialGameState);
         }
       } catch (error) {
-        console.error('Error initializing game state:', error);
+        // Handle error silently
       } finally {
-        setIsUpdating(false);
+        if (mounted) {
+          setIsUpdating(false);
+        }
       }
     };
 
     initializeGameState();
 
     // Subscribe to game state changes
-    console.log('Setting up game state subscription');
     const unsubscribe = storage.subscribeToGameState((newState: GameState) => {
-      if (isUpdating) {
-        console.log('Already updating game state, skipping subscription update');
-        return;
-      }
+      if (!mounted) return;
 
-      console.log('Received new game state:', newState);
-      if (newState) {
-        setIsUpdating(true);
-        // Apply the same normalization to subscription updates
-        const normalizedState = {
-          ...initialGameState,
-          ...newState,
-          hasGameStarted: Boolean(newState.hasGameStarted),
-          isActive: Boolean(newState.isActive),
-          isEnded: Boolean(newState.isEnded),
-          players: newState.players || {},
-          roundBids: newState.roundBids || {},
-          roundHistory: newState.roundHistory || [],
-          rivalries: newState.rivalries || {}
-        };
-        console.log('Setting normalized subscription state:', normalizedState);
-        setGameState(normalizedState);
-        setIsUpdating(false);
-      }
+      const normalizedState = {
+        ...initialGameState,
+        ...newState,
+        hasGameStarted: Boolean(newState.hasGameStarted),
+        isActive: Boolean(newState.isActive),
+        isEnded: Boolean(newState.isEnded),
+        players: newState.players || {},
+        roundBids: newState.roundBids || {},
+        roundHistory: newState.roundHistory || [],
+        rivalries: newState.rivalries || {}
+      };
+      setGameState(normalizedState);
     });
 
     return () => {
-      console.log('Cleaning up game state subscription');
+      mounted = false;
       unsubscribe();
-      setIsUpdating(false);
     };
-  }, [currentSessionId, isUpdating]); // Re-run effect when session changes
+  }, [currentSessionId, storage]);
 
   const startGame = async (config: GameConfig) => {
     const newState: GameState = {
@@ -389,16 +353,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const hasRivalries = gameState.rivalries && Object.keys(gameState.rivalries).length > 0;
 
       if (!hasRivalries && allPlayers.length >= 2) {
-        console.log('Auto-assigning rivals at start of round 1');
         const newRivalries = assignRoundRobin(allPlayers);
-        console.log('New rivalries:', newRivalries);
         
         const updatedState = {
           ...gameState,
           rivalries: newRivalries
         };
         await storage.updateGameState(updatedState);
-        console.log('Updated game state with rivalries:', updatedState);
       }
     }
 
@@ -428,19 +389,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     try {
-      console.log('Starting round with state:', updatedState);
       await storage.updateGameState(updatedState);
-      console.log('Round started successfully');
     } catch (error) {
-      console.error('Error starting round:', error);
       throw error;
     }
   };
 
   const endCurrentRound = async () => {
     if (!gameState) return;
-
-    console.log('Ending current round with game state:', gameState);
 
     // Get all players and their rivals with safe accessors
     const allPlayers = Object.keys(gameState.players || {});
@@ -455,31 +411,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       profits[player] = 0;
     });
 
-    console.log('Round bids:', roundBids);
-
     // First pass: Calculate market shares
     allPlayers.forEach(player => {
       const rivals = gameState.rivalries?.[player] || [];
-      console.log(`\nCalculating market share for ${player}`);
-      console.log('Rivals:', rivals);
-
       const playerBid = roundBids[player] || 0;
       const rivalBids = rivals.map(rival => roundBids[rival] || 0);
       
       if (playerBid === 0) {
-        console.log(`Player ${player} bid $0, setting market share to 0%`);
         marketShares[player] = 0;
       } else if (rivals.every(rival => roundBids[rival] === 0)) {
-        console.log(`Player ${player} is the only non-zero bidder, setting market share to 100%`);
         marketShares[player] = 1;
       } else {
         marketShares[player] = calculateMarketShare(playerBid, rivalBids);
       }
-      
-      console.log(`Final market share for ${player}: ${(marketShares[player] * 100).toFixed(1)}%`);
     });
-
-    console.log('\nMarket shares after first pass:', marketShares);
 
     // Second pass: Calculate profits for non-zero bids
     allPlayers.forEach(player => {
@@ -490,7 +435,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           marketShares[player],
           gameState.costPerUnit
         );
-        console.log(`Calculated profit for ${player} (bid: $${playerBid}): $${profits[player].toFixed(2)}`);
       }
     });
 
@@ -502,18 +446,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Get all rival profits (they're already calculated)
         const rivalProfits = rivals.map(rival => {
           const profit = profits[rival] || 0;
-          console.log(`Rival ${rival} profit: $${profit.toFixed(2)}`);
           return profit;
         });
         
         // Set profit to negative of the maximum rival profit
         const maxRivalProfit = Math.max(...rivalProfits);
         profits[player] = -maxRivalProfit;
-        console.log(`Player ${player} bid $0. Setting profit to negative of max rival profit: -$${maxRivalProfit.toFixed(2)}`);
       }
     });
-
-    console.log('\nFinal profits:', profits);
 
     // Calculate total profit (sum of all profits from all rounds for current player)
     const newTotalProfit = (gameState.totalProfit || 0) + profits[Object.keys(gameState.players)[0]] || 0;
@@ -554,7 +494,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       bestRoundProfit: isBestRound ? currentPlayerProfit : (gameState.bestRoundProfit || 0)
     };
 
-    console.log('Updating game state with new state:', newState);
     await storage.updateGameState(newState);
   };
 
@@ -573,11 +512,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           await storage.updateSessionStatus(currentSessionId, 'completed');
         } catch (error) {
-          console.error('Error updating session status:', error);
+          throw error;
         }
       }
     } catch (error) {
-      console.error('Error ending game:', error);
+      throw error;
     } finally {
       setIsUpdating(false);
     }
@@ -588,12 +527,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('Game state not initialized');
     }
 
-    console.log('Registering player:', playerName);
-    console.log('Current game state:', gameState);
-
     // Check if player already exists
     if (gameState.players?.[playerName]) {
-      console.log('Player already registered:', playerName);
       return;
     }
 
@@ -606,11 +541,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     try {
-      console.log('Adding player to storage:', playerData);
       await storage.addPlayer(playerName, playerData);
-      console.log('Player registered successfully');
     } catch (error) {
-      console.error('Error registering player:', error);
       throw error;
     }
   };
@@ -645,25 +577,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const autoAssignRivals = async () => {
     if (!gameState) {
-      console.warn('Game state not initialized');
       return;
     }
 
     // Allow rival assignment only before game starts or in round 1
     if (gameState.currentRound > 1) {
-      console.warn('Rivals can only be assigned in round 1');
       return;
     }
 
     const allPlayers = Object.keys(gameState.players || {});
     if (allPlayers.length < 2) {
-      console.warn('Need at least 2 players to assign rivals');
       return;
     }
 
-    console.log('Auto-assigning rivals for players:', allPlayers);
     const newRivalries = assignRoundRobin(allPlayers);
-    console.log('New rivalries assigned:', newRivalries);
     
     await storage.updateGameState({
       ...gameState,

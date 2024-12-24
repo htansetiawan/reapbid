@@ -30,10 +30,11 @@ const GameStatusDisplay: React.FC<GameStatusDisplayProps> = ({
           <Chip
             label={gameStatus}
             color={
-              gameState?.isActive ? 'success' :
-              gameState?.isEnded ? 'error' :
-              'warning'
+              gameStatus === 'Join Game to Start' ? 'warning' :
+              gameStatus === 'Select a Session' ? 'default' :
+              'success'
             }
+            sx={{ display: 'flex' }}
           />
         </Box>
 

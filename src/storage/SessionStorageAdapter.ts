@@ -70,7 +70,6 @@ export class SessionStorageAdapter implements StorageAdapter {
     if (!sessionId) {
       throw new Error('Session ID is required');
     }
-    console.log('Setting current session to:', sessionId);
     this.currentSessionRef = ref(this.database, `games/${sessionId}`);
   }
 
@@ -108,14 +107,9 @@ export class SessionStorageAdapter implements StorageAdapter {
   }
 
   async createSession(name: string, config: GameConfig): Promise<string> {
-    this.validateSessionName(name);
-    this.validateConfig(config);
-
     try {
       const sessionId = name.toLowerCase().replace(/\s+/g, '-');
       const sessionRef = ref(this.database, `games/${sessionId}`);
-
-      console.log('Creating new session with ID:', sessionId);
 
       // Initialize game state with config values
       const initialGameState: GameState = {
@@ -140,8 +134,6 @@ export class SessionStorageAdapter implements StorageAdapter {
         bestRoundProfit: 0
       };
 
-      console.log('Initial game state:', initialGameState);
-
       const session = {
         id: sessionId,
         name: name,
@@ -153,10 +145,8 @@ export class SessionStorageAdapter implements StorageAdapter {
       };
 
       await set(sessionRef, session);
-      console.log('Session created successfully:', session);
       return sessionId;
     } catch (error) {
-      console.error('Error creating session:', error);
       throw error;
     }
   }
@@ -183,7 +173,6 @@ export class SessionStorageAdapter implements StorageAdapter {
         };
       });
     } catch (error) {
-      console.error('Error listing sessions:', error);
       return [];
     }
   }
@@ -215,25 +204,20 @@ export class SessionStorageAdapter implements StorageAdapter {
       // Update everything in one transaction
       await update(sessionRef, updates);
     } catch (error) {
-      console.error('Error updating session status:', error);
       throw error;
     }
   }
 
-  // Implement StorageAdapter interface
   async getGameState(): Promise<GameState | null> {
     if (!this.currentSessionRef) {
       this.setCurrentSession('current');
     }
     try {
-      console.log('Getting game state for session:', this.currentSessionRef.key);
       // First try to get the full session to see what we have
       const sessionSnapshot = await get(this.currentSessionRef);
       const session = sessionSnapshot.val();
-      console.log('Full session data:', session);
 
       if (session && session.gameState) {
-        console.log('Found game state in session:', session.gameState);
         const normalizedState = {
           ...session.gameState,
           hasGameStarted: Boolean(session.gameState.hasGameStarted),
@@ -244,13 +228,10 @@ export class SessionStorageAdapter implements StorageAdapter {
           roundHistory: session.gameState.roundHistory || [],
           rivalries: session.gameState.rivalries || {}
         };
-        console.log('Normalized game state:', normalizedState);
         return normalizedState;
       }
-      console.log('No game state found in session');
       return null;
     } catch (error) {
-      console.error('Error getting game state:', error);
       return null;
     }
   }
@@ -260,13 +241,9 @@ export class SessionStorageAdapter implements StorageAdapter {
       throw new Error('No session selected');
     }
     try {
-      console.log('Updating game state for session:', this.currentSessionRef.key);
-      console.log('Update payload:', gameState);
-
       // Get current state
       const snapshot = await get(this.currentSessionRef);
       const session = snapshot.val();
-      console.log('Current session data:', session);
 
       if (!session) {
         throw new Error('Session not found');
@@ -279,20 +256,15 @@ export class SessionStorageAdapter implements StorageAdapter {
         updatedAt: Date.now()
       };
 
-      console.log('Merged game state:', mergedState);
-
       // Update the session with the new game state
       const updates = {
         gameState: mergedState,
         updatedAt: Date.now()
       };
 
-      console.log('Updating session with:', updates);
       await update(this.currentSessionRef, updates);
-      console.log('Game state updated successfully');
 
     } catch (error) {
-      console.error('Error updating game state:', error);
       throw error;
     }
   }
@@ -302,12 +274,9 @@ export class SessionStorageAdapter implements StorageAdapter {
       throw new Error('No session selected');
     }
     try {
-      console.log('Adding player:', playerName, 'with data:', playerData);
-      
       // Get current session data
       const snapshot = await get(this.currentSessionRef);
       const session = snapshot.val();
-      console.log('Current session data:', session);
 
       if (!session) {
         throw new Error('Session not found');
@@ -315,17 +284,16 @@ export class SessionStorageAdapter implements StorageAdapter {
 
       // Get current game state
       const currentGameState = session.gameState || {};
-      console.log('Current game state:', currentGameState);
 
-      // Update players in game state
+      // Update players in game state, ensuring we preserve config values
       const updatedGameState = {
         ...currentGameState,
+        maxPlayers: session.config.maxPlayers, // Ensure maxPlayers matches config
         players: {
           ...(currentGameState.players || {}),
           [playerName]: playerData
         }
       };
-      console.log('Updated game state:', updatedGameState);
 
       // Update the session with new game state
       const updates = {
@@ -333,12 +301,9 @@ export class SessionStorageAdapter implements StorageAdapter {
         updatedAt: Date.now()
       };
 
-      console.log('Updating session with:', updates);
       await update(this.currentSessionRef, updates);
-      console.log('Player added successfully');
 
     } catch (error) {
-      console.error('Error adding player:', error);
       throw error;
     }
   }
@@ -347,142 +312,95 @@ export class SessionStorageAdapter implements StorageAdapter {
     if (!this.currentSessionRef) {
       throw new Error('No session selected');
     }
-    try {
-      console.log('Removing player:', playerName);
-      
-      // Get current session data
-      const snapshot = await get(this.currentSessionRef);
-      const session = snapshot.val();
-      console.log('Current session data:', session);
 
-      if (!session) {
-        throw new Error('Session not found');
-      }
+    const snapshot = await get(this.currentSessionRef);
+    const session = snapshot.val();
 
-      // Get current game state
-      const currentGameState = session.gameState || {};
-      console.log('Current game state:', currentGameState);
-
-      // Remove player from players object
-      const { [playerName]: removedPlayer, ...remainingPlayers } = currentGameState.players || {};
-
-      // Update game state
-      const updatedGameState = {
-        ...currentGameState,
-        players: remainingPlayers
-      };
-      console.log('Updated game state:', updatedGameState);
-
-      // Update the session with new game state
-      const updates = {
-        gameState: updatedGameState,
-        updatedAt: Date.now()
-      };
-
-      console.log('Updating session with:', updates);
-      await update(this.currentSessionRef, updates);
-      console.log('Player removed successfully');
-
-    } catch (error) {
-      console.error('Error removing player:', error);
-      throw error;
+    if (!session) {
+      throw new Error('Session not found');
     }
+
+    const updatedSession = {
+      ...session,
+      gameState: {
+        ...session.gameState,
+        players: {
+          ...(session.gameState?.players || {}),
+          [playerName]: undefined
+        }
+      },
+      updatedAt: Date.now()
+    };
+
+    await set(this.currentSessionRef, updatedSession);
   }
 
   async updatePlayer(playerName: string, playerData: Partial<Player>): Promise<void> {
     if (!this.currentSessionRef) {
       throw new Error('No session selected');
     }
-    try {
-      const playerRef = ref(this.database, `games/${this.currentSessionRef.key}/gameState/players/${playerName}`);
-      await update(playerRef, playerData);
-    } catch (error) {
-      console.error('Error updating player:', error);
-      throw error;
-    }
+
+    const playerRef = ref(this.database, `games/${this.currentSessionRef.key}/gameState/players/${playerName}`);
+    await update(playerRef, playerData);
   }
 
   async timeoutPlayer(playerName: string): Promise<void> {
     if (!this.currentSessionRef) {
       throw new Error('No session selected');
     }
-    try {
-      const playerRef = ref(this.database, `games/${this.currentSessionRef.key}/gameState/players/${playerName}`);
-      await update(playerRef, { isTimedOut: true });
-    } catch (error) {
-      console.error('Error timing out player:', error);
-      throw error;
-    }
+
+    const playerRef = ref(this.database, `games/${this.currentSessionRef.key}/gameState/players/${playerName}`);
+    await update(playerRef, { isTimedOut: true });
   }
 
   async unTimeoutPlayer(playerName: string): Promise<void> {
     if (!this.currentSessionRef) {
       throw new Error('No session selected');
     }
-    try {
-      const playerRef = ref(this.database, `games/${this.currentSessionRef.key}/gameState/players/${playerName}`);
-      await update(playerRef, { isTimedOut: false });
-    } catch (error) {
-      console.error('Error removing timeout from player:', error);
-      throw error;
-    }
+
+    const playerRef = ref(this.database, `games/${this.currentSessionRef.key}/gameState/players/${playerName}`);
+    await update(playerRef, { isTimedOut: false });
   }
 
   async submitBid(playerName: string, bid: number): Promise<void> {
     if (!this.currentSessionRef) {
       throw new Error('No session selected');
     }
-    try {
-      const gameState = await this.getGameState();
-      if (!gameState) throw new Error('No game state found');
-      
-      // Update round bids
-      const roundBids = { ...gameState.roundBids, [playerName]: bid };
-      
-      // Update player status
-      const players = { 
-        ...gameState.players,
-        [playerName]: {
-          ...(gameState.players?.[playerName] || {}),
-          hasSubmittedBid: true,
-          currentBid: bid,
-          lastBidTime: Date.now()
-        }
-      };
-      
-      // Update both round bids and player status
-      await this.updateGameState({ roundBids, players });
-    } catch (error) {
-      console.error('Error submitting bid:', error);
-      throw error;
-    }
+
+    const gameState = await this.getGameState();
+    if (!gameState) throw new Error('No game state found');
+
+    const roundBids = { ...gameState.roundBids, [playerName]: bid };
+    const players = { 
+      ...gameState.players,
+      [playerName]: {
+        ...(gameState.players?.[playerName] || {}),
+        hasSubmittedBid: true,
+        currentBid: bid,
+        lastBidTime: Date.now()
+      }
+    };
+
+    await this.updateGameState({ roundBids, players });
   }
 
   async resetGame(): Promise<void> {
     if (!this.currentSessionRef) {
       throw new Error('No session selected');
     }
-    try {
-      await set(this.currentSessionRef, null);
-    } catch (error) {
-      console.error('Error resetting game:', error);
-      throw error;
-    }
+
+    await set(this.currentSessionRef, null);
   }
 
   async extendRoundTime(additionalSeconds: number): Promise<void> {
     if (!this.currentSessionRef) {
       throw new Error('No session selected');
     }
-    try {
-      const gameState = await this.getGameState();
-      if (gameState && gameState.roundStartTime !== null) {
-        const updatedRoundStartTime = gameState.roundStartTime + (additionalSeconds * 1000);
-        await this.updateGameState({ roundStartTime: updatedRoundStartTime });
-      }
-    } catch (error) {
-      console.error('Error extending round time:', error);
-      throw error;
+
+    const gameState = await this.getGameState();
+    if (gameState && gameState.roundStartTime !== null) {
+      const updatedRoundStartTime = gameState.roundStartTime + (additionalSeconds * 1000);
+      await this.updateGameState({ roundStartTime: updatedRoundStartTime });
     }
   }
 
@@ -490,12 +408,11 @@ export class SessionStorageAdapter implements StorageAdapter {
     if (!this.currentSessionRef) {
       throw new Error('No session selected');
     }
-    try {
-      await this.updateGameState({ rivalries });
-    } catch (error) {
-      console.error('Error updating rivalries:', error);
-      throw error;
-    }
+
+    const gameState = await this.getGameState();
+    if (!gameState) throw new Error('No game state found');
+
+    await this.updateGameState({ rivalries });
   }
 
   async deleteSession(sessionId: string): Promise<void> {
@@ -503,7 +420,7 @@ export class SessionStorageAdapter implements StorageAdapter {
       const sessionRef = ref(this.database, `games/${sessionId}`);
       await remove(sessionRef);
     } catch (error) {
-      console.error('Error deleting session:', error);
+      // console.log('Error deleting session:', error);
       throw error;
     }
   }
@@ -513,36 +430,24 @@ export class SessionStorageAdapter implements StorageAdapter {
       throw new Error('No session selected');
     }
 
-    console.log('Subscribing to game state for session:', this.currentSessionRef.key);
-    
-    const unsubscribe = onValue(this.currentSessionRef, (snapshot) => {
-      const session = snapshot.val();
-      console.log('Received session update:', session);
-      
-      if (session && session.gameState) {
-        console.log('Found game state in session:', session.gameState);
-        // Normalize boolean values and ensure required fields exist
-        const normalizedState = {
-          ...session.gameState,
-          hasGameStarted: Boolean(session.gameState.hasGameStarted),
-          isActive: Boolean(session.gameState.isActive),
-          isEnded: Boolean(session.gameState.isEnded),
-          players: session.gameState.players || {},
-          roundBids: session.gameState.roundBids || {},
-          roundHistory: session.gameState.roundHistory || [],
-          rivalries: session.gameState.rivalries || {}
-        };
-        console.log('Normalized game state:', normalizedState);
-        callback(normalizedState);
-      } else {
-        console.log('No game state found in session update');
+    // Unsubscribe from any existing subscription
+    if (this.unsubscribe) {
+      this.unsubscribe();
+    }
+
+    // Subscribe to game state changes
+    const gameStateRef = ref(this.database, `games/${this.currentSessionRef.key}/gameState`);
+    const unsubscribe = onValue(gameStateRef, (snapshot) => {
+      const gameState = snapshot.val();
+      if (gameState) {
+        callback(gameState);
       }
+    }, (error) => {
+      // console.log('Error subscribing to game state:', error);
     });
 
-    return () => {
-      console.log('Unsubscribing from game state');
-      unsubscribe();
-    };
+    this.unsubscribe = unsubscribe;
+    return unsubscribe;
   }
 
   cleanup(): void {

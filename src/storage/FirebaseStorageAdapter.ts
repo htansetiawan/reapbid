@@ -1,17 +1,36 @@
-import { ref, get, set, onValue, off, update } from 'firebase/database';
+import { ref, get, set, onValue, off, update, Database } from 'firebase/database';
 import { database } from '../firebase/config';
 import { StorageAdapter } from './StorageAdapter';
 import { GameState, Player } from '../context/GameContext';
 import { SessionMetadata } from './SessionStorageAdapter';
 
 export class FirebaseStorageAdapter implements StorageAdapter {
-  private gameRef = ref(database, 'games/current');
+  private database: Database;
+  private currentSessionRef: any = null;
   private unsubscribe: (() => void) | null = null;
 
+  constructor(sessionId?: string) {
+    this.database = database;
+    if (sessionId) {
+      this.setCurrentSession(sessionId);
+    }
+  }
+
+  setCurrentSession(sessionId: string): void {
+    if (!sessionId) {
+      throw new Error('Session ID is required');
+    }
+    this.currentSessionRef = ref(this.database, `games/${sessionId}`);
+  }
+
   async getGameState(): Promise<GameState | null> {
+    if (!this.currentSessionRef) {
+      throw new Error('No session selected');
+    }
     try {
-      const snapshot = await get(this.gameRef);
-      return snapshot.val() as GameState;
+      const snapshot = await get(this.currentSessionRef);
+      const session = snapshot.val();
+      return session?.gameState || null;
     } catch (error) {
       console.error('Error getting game state:', error);
       return null;
@@ -19,8 +38,11 @@ export class FirebaseStorageAdapter implements StorageAdapter {
   }
 
   async updateGameState(gameState: Partial<GameState>): Promise<void> {
+    if (!this.currentSessionRef) {
+      throw new Error('No session selected');
+    }
     try {
-      await update(this.gameRef, gameState);
+      await update(this.currentSessionRef, { gameState });
     } catch (error) {
       console.error('Error updating game state:', error);
       throw error;
@@ -28,16 +50,20 @@ export class FirebaseStorageAdapter implements StorageAdapter {
   }
 
   subscribeToGameState(callback: (gameState: GameState) => void): () => void {
+    if (!this.currentSessionRef) {
+      throw new Error('No session selected');
+    }
+
     // Unsubscribe from previous subscription if exists
     if (this.unsubscribe) {
       this.unsubscribe();
     }
 
     // Create new subscription
-    const unsubscribe = onValue(this.gameRef, (snapshot) => {
-      const gameState = snapshot.val() as GameState;
-      if (gameState) {
-        callback(gameState);
+    const unsubscribe = onValue(this.currentSessionRef, (snapshot) => {
+      const session = snapshot.val();
+      if (session?.gameState) {
+        callback(session.gameState);
       }
     });
 
@@ -48,8 +74,11 @@ export class FirebaseStorageAdapter implements StorageAdapter {
   }
 
   async addPlayer(playerName: string, playerData: Player): Promise<void> {
+    if (!this.currentSessionRef) {
+      throw new Error('No session selected');
+    }
     try {
-      const playerRef = ref(database, `games/current/players/${playerName}`);
+      const playerRef = ref(this.database, `games/${this.currentSessionRef.key}/gameState/players/${playerName}`);
       await set(playerRef, playerData);
     } catch (error) {
       console.error('Error adding player:', error);
@@ -58,8 +87,11 @@ export class FirebaseStorageAdapter implements StorageAdapter {
   }
 
   async removePlayer(playerName: string): Promise<void> {
+    if (!this.currentSessionRef) {
+      throw new Error('No session selected');
+    }
     try {
-      const playerRef = ref(database, `games/current/players/${playerName}`);
+      const playerRef = ref(this.database, `games/${this.currentSessionRef.key}/gameState/players/${playerName}`);
       await set(playerRef, null);
     } catch (error) {
       console.error('Error removing player:', error);
@@ -68,8 +100,11 @@ export class FirebaseStorageAdapter implements StorageAdapter {
   }
 
   async updatePlayer(playerName: string, playerData: Partial<Player>): Promise<void> {
+    if (!this.currentSessionRef) {
+      throw new Error('No session selected');
+    }
     try {
-      const playerRef = ref(database, `games/current/players/${playerName}`);
+      const playerRef = ref(this.database, `games/${this.currentSessionRef.key}/gameState/players/${playerName}`);
       await update(playerRef, playerData);
     } catch (error) {
       console.error('Error updating player:', error);
@@ -86,15 +121,18 @@ export class FirebaseStorageAdapter implements StorageAdapter {
   }
 
   async submitBid(playerName: string, bid: number): Promise<void> {
+    if (!this.currentSessionRef) {
+      throw new Error('No session selected');
+    }
     try {
       const updates: any = {};
-      updates[`games/current/roundBids/${playerName}`] = bid;
-      updates[`games/current/players/${playerName}`] = {
+      updates[`games/${this.currentSessionRef.key}/gameState/roundBids/${playerName}`] = bid;
+      updates[`games/${this.currentSessionRef.key}/gameState/players/${playerName}`] = {
         currentBid: bid,
         hasSubmittedBid: true,
         lastBidTime: Date.now()
       };
-      await update(ref(database), updates);
+      await update(ref(this.database), updates);
     } catch (error) {
       console.error('Error submitting bid:', error);
       throw error;
@@ -102,8 +140,11 @@ export class FirebaseStorageAdapter implements StorageAdapter {
   }
 
   async resetGame(): Promise<void> {
+    if (!this.currentSessionRef) {
+      throw new Error('No session selected');
+    }
     try {
-      await set(this.gameRef, null);
+      await set(this.currentSessionRef, null);
     } catch (error) {
       console.error('Error resetting game:', error);
       throw error;
@@ -111,12 +152,15 @@ export class FirebaseStorageAdapter implements StorageAdapter {
   }
 
   async extendRoundTime(additionalSeconds: number): Promise<void> {
+    if (!this.currentSessionRef) {
+      throw new Error('No session selected');
+    }
     try {
-      const snapshot = await get(this.gameRef);
-      const gameState = snapshot.val() as GameState;
-      if (gameState && gameState.roundStartTime !== null) {
-        const updatedRoundStartTime = gameState.roundStartTime + (additionalSeconds * 1000);
-        await update(this.gameRef, { roundStartTime: updatedRoundStartTime });
+      const snapshot = await get(this.currentSessionRef);
+      const session = snapshot.val();
+      if (session?.gameState && session.gameState.roundStartTime !== null) {
+        const updatedRoundStartTime = session.gameState.roundStartTime + (additionalSeconds * 1000);
+        await update(this.currentSessionRef, { gameState: { ...session.gameState, roundStartTime: updatedRoundStartTime } });
       }
     } catch (error) {
       console.error('Error extending round time:', error);
@@ -125,8 +169,11 @@ export class FirebaseStorageAdapter implements StorageAdapter {
   }
 
   async updateRivalries(rivalries: Record<string, string[]>): Promise<void> {
+    if (!this.currentSessionRef) {
+      throw new Error('No session selected');
+    }
     try {
-      await update(this.gameRef, { rivalries });
+      await update(this.currentSessionRef, { gameState: { ...this.getGameState(), rivalries } });
     } catch (error) {
       console.error('Error updating rivalries:', error);
       throw error;
@@ -146,20 +193,45 @@ export class FirebaseStorageAdapter implements StorageAdapter {
     throw new Error('Session management not supported in legacy adapter');
   }
 
-  setCurrentSession(sessionId: string): void {
-    throw new Error('Session management not supported in legacy adapter');
-  }
-
   async loadSession(sessionId: string): Promise<GameState | null> {
-    throw new Error('Session management not supported in legacy adapter');
+    if (!sessionId) {
+      throw new Error('Session ID is required');
+    }
+    try {
+      const sessionRef = ref(this.database, `games/${sessionId}`);
+      const snapshot = await get(sessionRef);
+      const session = snapshot.val();
+      return session?.gameState || null;
+    } catch (error) {
+      console.error('Error loading session:', error);
+      return null;
+    }
   }
 
   async saveSession(sessionId: string, gameState: GameState): Promise<void> {
-    throw new Error('Session management not supported in legacy adapter');
+    if (!sessionId) {
+      throw new Error('Session ID is required');
+    }
+    try {
+      const sessionRef = ref(this.database, `games/${sessionId}`);
+      await update(sessionRef, { gameState });
+    } catch (error) {
+      console.error('Error saving session:', error);
+      throw error;
+    }
   }
 
   async deleteSession(sessionId: string): Promise<void> {
-    throw new Error('Session management not supported in legacy adapter');
+    if (!sessionId) {
+      throw new Error('Session ID is required');
+    }
+    try {
+      const sessionRef = ref(this.database, `games/${sessionId}`);
+      await set(sessionRef, null);
+    } catch (error) {
+      console.error('Error deleting session:', error);
+      throw error;
+    }
   }
 
   cleanup(): void {

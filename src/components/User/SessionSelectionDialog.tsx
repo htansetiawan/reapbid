@@ -98,7 +98,6 @@ const SessionSelectionDialog: React.FC<SessionSelectionDialogProps> = ({
                   <ListItemButton
                     onClick={() => onSelectSession(session.id)}
                     selected={session.id === currentSessionId}
-                    disabled={session.totalPlayers === session.config.maxPlayers}
                   >
                     <ListItemText
                       primary={session.name}
@@ -115,10 +114,10 @@ const SessionSelectionDialog: React.FC<SessionSelectionDialogProps> = ({
                             <Typography
                               component="span"
                               variant="body2"
-                              color="error"
+                              color="warning.main"
                               sx={{ ml: 1 }}
                             >
-                              (Full)
+                              (Full - Only registered players can join)
                             </Typography>
                           )}
                           <br />
