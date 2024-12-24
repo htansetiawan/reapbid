@@ -176,12 +176,17 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
     
     // Allow empty string or numbers only (including decimals and leading zeros)
     if (value === '' || /^\d*\.?\d*$/.test(value)) {
-      setBidString(value);
-      setError(null);
+      const numValue = value === '' ? 0 : Number(value);
       
-      // Validate number range if it's a valid number
-      if (value !== '') {
-        const numValue = Number(value);
+      // Only update if within valid range or empty
+      if (value === '' || (
+        numValue >= (minBid ?? 0) && 
+        numValue <= (maxBid ?? Infinity)
+      )) {
+        setBidString(value);
+        setError(null);
+      } else {
+        // Keep the old value but show error
         if (numValue < (minBid ?? 0)) {
           setError(`Bid must be at least ${minBid}`);
         } else if (numValue > (maxBid ?? Infinity)) {
@@ -194,6 +199,12 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!bid) return;
+
+    // Double check validation before submitting
+    if (bid < (minBid ?? 0) || bid > (maxBid ?? Infinity)) {
+      setError(`Bid must be between ${minBid} and ${maxBid}`);
+      return;
+    }
 
     try {
       await submitBid(playerName, bid);
