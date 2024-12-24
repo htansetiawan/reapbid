@@ -7,6 +7,7 @@ import PrivateRoute from './components/Auth/PrivateRoute';
 import Login from './components/Auth/Login';
 import AdminPage from './pages/AdminPage';
 import PlayPage from './pages/PlayPage';
+import HomePage from './pages/HomePage';
 import Navbar from './components/Navigation/Navbar';
 import { useAuth } from './context/AuthContext';
 
@@ -34,13 +35,8 @@ const Root: React.FC = () => {
     );
   }
 
-  // If user is not authenticated, redirect to login
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  // If user is authenticated, redirect to play page
-  return <Navigate to="/play" replace />;
+  // If user is not authenticated, show home page
+  return <Navigate to="/home" replace />;
 };
 
 const App: React.FC = () => {
@@ -50,36 +46,24 @@ const App: React.FC = () => {
         <GameProvider>
           <Router>
             <Routes>
-              {/* Public route */}
+              <Route path="/home" element={<HomePage />} />
               <Route path="/login" element={<Login />} />
-
-              {/* Protected routes */}
-              <Route
-                path="/admin"
-                element={
-                  <PrivateRoute adminOnly>
-                    <ProtectedLayout>
-                      <AdminPage />
-                    </ProtectedLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/play"
-                element={
-                  <PrivateRoute>
-                    <ProtectedLayout>
-                      <PlayPage />
-                    </ProtectedLayout>
-                  </PrivateRoute>
-                }
-              />
-
-              {/* Root route handler */}
+              <Route path="/admin" element={
+                <PrivateRoute>
+                  <ProtectedLayout>
+                    <AdminPage />
+                  </ProtectedLayout>
+                </PrivateRoute>
+              } />
+              <Route path="/play" element={
+                <PrivateRoute>
+                  <ProtectedLayout>
+                    <PlayPage />
+                  </ProtectedLayout>
+                </PrivateRoute>
+              } />
               <Route path="/" element={<Root />} />
-
-              {/* Catch all other routes and redirect to root */}
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<Navigate to="/home" replace />} />
             </Routes>
           </Router>
         </GameProvider>
