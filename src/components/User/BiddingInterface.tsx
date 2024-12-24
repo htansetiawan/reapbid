@@ -166,7 +166,9 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
   }, [playerName, gameState?.players, navigate]);
 
   const isInputEnabled = () => {
-    return isGameActive && !hasBidSubmitted && !isTimedOut;
+    // Check if game is active and round has started (roundStartTime exists)
+    const roundStarted = gameState?.roundStartTime != null;
+    return isGameActive && roundStarted && !hasBidSubmitted && !isTimedOut;
   };
 
   const handleBidChange = (e: React.ChangeEvent<HTMLInputElement>) => {
