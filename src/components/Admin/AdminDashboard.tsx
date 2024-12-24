@@ -286,16 +286,14 @@ const AdminDashboard: React.FC = () => {
                             </Button>
                           )}
 
-                          {!isRoundActive && gameState.currentRound > gameState.totalRounds && (
-                            <Button
-                              variant="contained"
-                              color="error"
-                              onClick={handleEndGame}
-                              startIcon={<StopIcon />}
-                            >
-                              End Game
-                            </Button>
-                          )}
+                          <Button
+                            variant="contained"
+                            color="error"
+                            onClick={handleEndGame}
+                            startIcon={<StopIcon />}
+                          >
+                            End Game
+                          </Button>
                         </>
                       )}
 
