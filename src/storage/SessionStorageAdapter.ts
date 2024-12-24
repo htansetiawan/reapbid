@@ -164,16 +164,26 @@ export class SessionStorageAdapter implements StorageAdapter {
         console.log(`Session ${id} status:`, session.status);
         console.log(`Session ${id} gameState.isEnded:`, session.gameState?.isEnded);
         
+        // Defensive check for config
+        const config = session.config || {
+          totalRounds: 3,  // Default value
+          roundTimeLimit: 60,
+          minBid: 0,
+          maxBid: 100,
+          costPerUnit: 50,
+          maxPlayers: 4
+        };
+        
         return {
           id,
-          name: session.name,
-          createdAt: session.createdAt,
-          updatedAt: session.updatedAt,
-          status: session.status,
+          name: session.name || 'Unnamed Session',
+          createdAt: session.createdAt || Date.now(),
+          updatedAt: session.updatedAt || Date.now(),
+          status: session.status || 'active',
           totalPlayers,
-          currentRound: session.gameState?.currentRound,
-          totalRounds: session.config.totalRounds,
-          config: session.config
+          currentRound: session.gameState?.currentRound || 1,
+          totalRounds: config.totalRounds,
+          config
         };
       });
     } catch (error) {

@@ -346,51 +346,44 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const startRound = async () => {
     if (!gameState) return;
 
-    // Auto-assign rivals if it's the first round
-    if (gameState.currentRound === 1) {
-      const players = gameState.players ?? {};
-      const allPlayers = Object.keys(players);
-      const hasRivalries = gameState.rivalries && Object.keys(gameState.rivalries).length > 0;
-
-      if (!hasRivalries && allPlayers.length >= 2) {
-        const newRivalries = assignRoundRobin(allPlayers);
-        
-        const updatedState = {
-          ...gameState,
-          rivalries: newRivalries
-        };
-        await storage.updateGameState(updatedState);
-      }
-    }
-
-    // Reset all player states for the new round
-    const updatedPlayers = Object.fromEntries(
-      Object.entries(gameState.players ?? {}).map(([name, player]) => [
-        name,
-        { ...player, hasSubmittedBid: false, currentBid: null, isTimedOut: false }
-      ])
-    );
-
-    // Update game state for the new round
-    const updatedState = {
-      ...gameState,  // Preserve all existing fields
-      hasGameStarted: true,
-      isActive: true,
-      isEnded: false,
-      roundStartTime: Date.now(),
-      roundBids: {},
-      players: updatedPlayers,
-      totalProfit: gameState.totalProfit || 0,
-      averageMarketShare: gameState.averageMarketShare || 0,
-      bestRound: gameState.bestRound || 0,
-      bestRoundProfit: gameState.bestRoundProfit || 0,
-      rivalries: gameState.rivalries || {},
-      roundHistory: gameState.roundHistory || []
-    };
-
     try {
+      // Reset all player states for the new round
+      const updatedPlayers = Object.fromEntries(
+        Object.entries(gameState.players ?? {}).map(([name, player]) => [
+          name,
+          { ...player, hasSubmittedBid: false, currentBid: null, isTimedOut: false }
+        ])
+      );
+
+      // Auto-assign all players as rivals to each other
+      const allPlayers = Object.keys(gameState.players ?? {});
+      const newRivalries: Record<string, string[]> = {};
+      
+      // For each player, assign all other players as rivals
+      allPlayers.forEach(player => {
+        newRivalries[player] = allPlayers.filter(p => p !== player);
+      });
+
+      // Update game state for the new round
+      const updatedState = {
+        ...gameState,
+        hasGameStarted: true,
+        isActive: true,
+        isEnded: false,
+        roundStartTime: Date.now(),
+        roundBids: {},
+        players: updatedPlayers,
+        rivalries: newRivalries,  // Set new rivalries every round
+        totalProfit: gameState.totalProfit || 0,
+        averageMarketShare: gameState.averageMarketShare || 0,
+        bestRound: gameState.bestRound || 0,
+        bestRoundProfit: gameState.bestRoundProfit || 0,
+        roundHistory: gameState.roundHistory || []
+      };
+
       await storage.updateGameState(updatedState);
     } catch (error) {
+      console.error('Error starting round:', error);
       throw error;
     }
   };
@@ -580,22 +573,26 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Allow rival assignment only before game starts or in round 1
-    if (gameState.currentRound > 1) {
-      return;
-    }
+    try {
+      const allPlayers = Object.keys(gameState.players || {});
+      if (allPlayers.length < 2) {
+        return;
+      }
 
-    const allPlayers = Object.keys(gameState.players || {});
-    if (allPlayers.length < 2) {
-      return;
+      // Assign all players as rivals to each other
+      const newRivalries: Record<string, string[]> = {};
+      allPlayers.forEach(player => {
+        newRivalries[player] = allPlayers.filter(p => p !== player);
+      });
+      
+      await storage.updateGameState({
+        ...gameState,
+        rivalries: newRivalries
+      });
+    } catch (error) {
+      console.error('Error auto-assigning rivals:', error);
+      throw error;
     }
-
-    const newRivalries = assignRoundRobin(allPlayers);
-    
-    await storage.updateGameState({
-      ...gameState,
-      rivalries: newRivalries
-    });
   };
 
   return (
