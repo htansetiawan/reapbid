@@ -173,13 +173,16 @@ export class SessionStorageAdapter implements StorageAdapter {
           costPerUnit: 50,
           maxPlayers: 4
         };
+
+        // If game is ended, session should be completed
+        const status = session.gameState?.isEnded ? 'completed' : (session.status || 'active');
         
         return {
           id,
           name: session.name || 'Unnamed Session',
           createdAt: session.createdAt || Date.now(),
           updatedAt: session.updatedAt || Date.now(),
-          status: session.status || 'active',
+          status,
           totalPlayers,
           currentRound: session.gameState?.currentRound || 1,
           totalRounds: config.totalRounds,

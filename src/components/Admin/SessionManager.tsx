@@ -76,11 +76,10 @@ const SessionManagerComponent: React.FC = () => {
     return sessions.map(session => ({
       ...session,
       isSelected: session.id === currentSessionId,
-      status: session.id === currentSessionId && gameState?.isEnded ? 'completed' : session.status,
-      statusColor: session.id === currentSessionId && gameState?.isEnded ? 'info' :
+      statusColor: session.status === 'completed' ? 'info' :
                   session.status === 'active' ? 'success' : 'default'
     }));
-  }, [sessions, currentSessionId, gameState?.isEnded]);
+  }, [sessions, currentSessionId]);
 
   // Handlers
   const handleNext = useCallback(() => {
