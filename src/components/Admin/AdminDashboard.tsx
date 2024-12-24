@@ -332,47 +332,6 @@ const AdminDashboard: React.FC = () => {
                   </Paper>
                 </Grid>
 
-                <Grid item xs={12}>
-                  <Paper sx={{ p: 3 }}>
-                    <Typography variant="h6" gutterBottom>
-                      Player Statistics
-                    </Typography>
-                    <Typography variant="subtitle1" gutterBottom>
-                      Total Players: {playerCount}
-                    </Typography>
-                    <TableContainer>
-                      <Table>
-                        <TableHead>
-                          <TableRow>
-                            <TableCell>Player</TableCell>
-                            <TableCell>Total Profit</TableCell>
-                            <TableCell align="right">Average Market Share</TableCell>
-                            <TableCell align="right">Average Bid</TableCell>
-                            <TableCell align="right">Best Round</TableCell>
-                            <TableCell align="right">Best Profit</TableCell>
-                            <TableCell align="right">Status</TableCell>
-                            <TableCell align="right">Current Bid</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {Object.values(playerStats).map((stats) => (
-                            <TableRow key={stats.playerId}>
-                              <TableCell>{stats.playerId}</TableCell>
-                              <TableCell>${stats.totalProfit.toFixed(2)}</TableCell>
-                              <TableCell align="right">{stats.avgMarketShare.toFixed(2)}%</TableCell>
-                              <TableCell align="right">${stats.avgBid.toFixed(2)}</TableCell>
-                              <TableCell align="right">{stats.bestRound}</TableCell>
-                              <TableCell align="right">${stats.bestProfit.toFixed(2)}</TableCell>
-                              <TableCell align="right">{stats.status}</TableCell>
-                              <TableCell align="right">{stats.currentBid}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </Paper>
-                </Grid>
-
                 {currentSessionId && gameState && (
                   <Grid item xs={12}>
                     <Paper sx={{ p: 3 }}>
