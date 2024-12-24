@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useGame } from '../../context/GameContext';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { Typography, Box, TextField, Button } from '@mui/material';
 
 interface BiddingInterfaceProps {
   playerName: string;
@@ -56,7 +57,51 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
   // Add utility function for round display
   const normalizeRoundNumber = (round: number) => {
     const totalRounds = gameState?.totalRounds ?? 0;
-    return Math.min(round + 1, totalRounds);
+    return Math.min(round, totalRounds);
+  };
+
+  interface RivalStats {
+    name: string;
+    bid: number;
+    profit: number;
+    marketShare: number;
+  }
+
+  interface ProcessedRound {
+    roundNumber: number;
+    ownStats: {
+      bid: number;
+      profit: number;
+      marketShare: number;
+    };
+    rivalStats: RivalStats[];
+  }
+
+  const processRoundHistory = (): ProcessedRound[] => {
+    if (!gameState?.roundHistory) return [];
+    
+    return gameState.roundHistory.map((round, index) => {
+      // Get rivals from gameState.rivalries
+      const myRivals = gameState.rivalries?.[playerName] || [];
+      
+      // Get rival stats for this round
+      const rivalStats = myRivals.map(rivalName => ({
+        name: rivalName,
+        bid: round.bids?.[rivalName] ?? 0,
+        profit: round.profits?.[rivalName] ?? 0,
+        marketShare: round.marketShares?.[rivalName] ?? 0
+      }));
+
+      return {
+        roundNumber: index + 1,
+        ownStats: {
+          bid: round.bids?.[playerName] ?? 0,
+          profit: round.profits?.[playerName] ?? 0,
+          marketShare: round.marketShares?.[playerName] ?? 0
+        },
+        rivalStats
+      };
+    });
   };
 
   const getDisplayRound = () => {
@@ -174,6 +219,34 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
     lastBidTime: null
   };
 
+  const calculatePlayerStats = () => {
+    if (!gameState?.roundHistory) {
+      return {
+        totalProfit: 0,
+        averageMarketShare: 0
+      };
+    }
+
+    // Calculate total profit and market share from round history
+    const stats = gameState.roundHistory.reduce((acc, round) => {
+      const profit = round.profits?.[playerName] ?? 0;
+      const marketShare = round.marketShares?.[playerName] ?? 0;
+      
+      return {
+        totalProfit: acc.totalProfit + profit,
+        totalMarketShare: acc.totalMarketShare + marketShare,
+        roundCount: acc.roundCount + 1
+      };
+    }, { totalProfit: 0, totalMarketShare: 0, roundCount: 0 });
+
+    return {
+      totalProfit: stats.totalProfit,
+      averageMarketShare: stats.roundCount > 0 ? stats.totalMarketShare / stats.roundCount : 0
+    };
+  };
+
+  const { totalProfit, averageMarketShare } = calculatePlayerStats();
+
   // Show timeout message if player is timed out
   if (playerState.isTimedOut) {
     return (
@@ -261,56 +334,18 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
 
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: '24px',
-            marginBottom: '32px'
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '16px',
+            marginBottom: '24px'
           }}>
-            <div style={{
-              backgroundColor: 'rgba(0,0,0,0.02)',
-              padding: '16px',
-              borderRadius: '8px',
-              textAlign: 'center'
-            }}>
-              <div style={{
-                fontSize: '14px',
-                color: 'rgba(0,0,0,0.6)',
-                marginBottom: '8px',
-                fontWeight: 500
-              }}>
-                Total Profit
-              </div>
-              <div style={{
-                fontSize: '24px',
-                fontWeight: 600,
-                color: 'rgba(0,0,0,0.87)'
-              }}>
-                ${gameState?.totalProfit ?? 0}
-              </div>
-            </div>
-
-            <div style={{
-              backgroundColor: 'rgba(0,0,0,0.02)',
-              padding: '16px',
-              borderRadius: '8px',
-              textAlign: 'center'
-            }}>
-              <div style={{
-                fontSize: '14px',
-                color: 'rgba(0,0,0,0.6)',
-                marginBottom: '8px',
-                fontWeight: 500
-              }}>
-                Average Market Share
-              </div>
-              <div style={{
-                fontSize: '24px',
-                fontWeight: 600,
-                color: 'rgba(0,0,0,0.87)'
-              }}>
-                {(gameState?.averageMarketShare ?? 0) * 100}%
-              </div>
-            </div>
-
+            <StatBox
+              label="Total Profit"
+              value={`$${totalProfit.toFixed(2)}`}
+            />
+            <StatBox
+              label="Average Market Share"
+              value={`${(averageMarketShare * 100).toFixed(1)}%`}
+            />
             <div style={{
               backgroundColor: 'rgba(0,0,0,0.02)',
               padding: '16px',
@@ -397,7 +432,7 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
                     whiteSpace: 'nowrap',
                     fontSize: '14px'
                   }}>
-                    #
+                    Round
                   </th>
                   <th style={{ 
                     padding: '12px',
@@ -438,90 +473,54 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {gameState?.roundHistory?.map((round, index) => (
-                  <tr key={index}>
+                {processRoundHistory().map((round) => (
+                  <tr key={round.roundNumber}>
                     <td style={{ 
                       padding: '12px',
                       borderBottom: '1px solid rgba(0,0,0,0.12)',
-                      textAlign: 'left'
+                      fontWeight: 500
                     }}>
-                      {normalizeRoundNumber(index + 1)}
+                      {round.roundNumber}
                     </td>
                     <td style={{ 
                       padding: '12px',
                       borderBottom: '1px solid rgba(0,0,0,0.12)',
-                      fontSize: '13px'
+                      whiteSpace: 'pre-line'
                     }}>
-                      <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '12px'
-                      }}>
-                        {round.rivals.map(rival => (
-                          <div key={rival.name} style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '4px',
-                            padding: '8px',
-                            backgroundColor: 'rgba(0,0,0,0.02)',
-                            borderRadius: '4px'
-                          }}>
-                            <div style={{
-                              fontWeight: 500,
-                              color: 'rgba(0,0,0,0.87)',
-                              marginBottom: '4px'
-                            }}>
-                              {rival.name}
-                            </div>
-                            <div style={{
-                              display: 'grid',
-                              gridTemplateColumns: 'repeat(3, 1fr)',
-                              gap: '8px',
-                              fontSize: '12px',
-                              color: 'rgba(0,0,0,0.6)'
-                            }}>
-                              <div>
-                                <div style={{ marginBottom: '2px', fontWeight: 500 }}>Bid</div>
-                                <div>${rival.bid}</div>
-                              </div>
-                              <div>
-                                <div style={{ marginBottom: '2px', fontWeight: 500 }}>Profit</div>
-                                <div style={{
-                                  color: rival.profit >= 0 ? '#2e7d32' : '#d32f2f'
-                                }}>
-                                  ${rival.profit.toFixed(2)}
-                                </div>
-                              </div>
-                              <div>
-                                <div style={{ marginBottom: '2px', fontWeight: 500 }}>Share</div>
-                                <div>{(rival.marketShare * 100).toFixed(1)}%</div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      {round.rivalStats.map((rival, index) => (
+                        <div key={index}>
+                          {rival.name}:
+                          {'\n'}
+                          Bid: {rival.bid.toFixed(2)}
+                          {'\n'}
+                          Profit: {rival.profit.toFixed(2)}
+                          {'\n'}
+                          %: {(rival.marketShare * 100).toFixed(1)}%
+                          {index < round.rivalStats.length - 1 ? '\n\n' : ''}
+                        </div>
+                      ))}
                     </td>
                     <td style={{ 
                       padding: '12px',
                       borderBottom: '1px solid rgba(0,0,0,0.12)',
                       textAlign: 'right'
                     }}>
-                      ${round.bid}
+                      ${round.ownStats.bid}
                     </td>
                     <td style={{ 
                       padding: '12px',
                       borderBottom: '1px solid rgba(0,0,0,0.12)',
                       textAlign: 'right',
-                      color: round.profit >= 0 ? '#2e7d32' : '#d32f2f'
+                      color: round.ownStats.profit >= 0 ? '#2e7d32' : '#d32f2f'
                     }}>
-                      ${round.profit.toFixed(2)}
+                      ${round.ownStats.profit.toFixed(2)}
                     </td>
                     <td style={{ 
                       padding: '12px',
                       borderBottom: '1px solid rgba(0,0,0,0.12)',
                       textAlign: 'right'
                     }}>
-                      {(round.marketShare * 100).toFixed(1)}%
+                      {(round.ownStats.marketShare * 100).toFixed(1)}%
                     </td>
                   </tr>
                 ))}
@@ -583,135 +582,111 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
 
   return (
     <div style={{ padding: '16px', maxWidth: '100%', margin: '0 auto' }}>
-      <div style={{
-        backgroundColor: '#fff',
-        padding: '16px',
-        borderRadius: '8px',
-        marginBottom: '16px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        border: '1px solid rgba(0,0,0,0.12)'
-      }}>
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px',
-          marginBottom: '16px'
-        }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '8px'
-          }}>
-            <div style={{
-              fontSize: '20px',
-              fontWeight: 600,
-              color: 'rgba(0,0,0,0.87)'
-            }}>
-              {user?.email ? user.email.split('@')[0] : ''}
-            </div>
-          </div>
-
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-            gap: '8px',
-            fontSize: '14px',
-            color: 'rgba(0,0,0,0.6)'
-          }}>
-            <div>
-              <div style={{
-                fontSize: '14px',
-                color: 'rgba(0,0,0,0.6)',
-                marginBottom: '4px'
-              }}>
-                Round
-              </div>
-              <div style={{
-                fontSize: '20px',
-                color: 'rgba(0,0,0,0.87)',
-                fontWeight: 500
-              }}>
-                {getDisplayRound()}
-              </div>
-            </div>
-            <div>Time: {remainingTime}</div>
-          </div>
-        </div>
-      </div>
-
       <form onSubmit={handleBidSubmit}>
         <div style={{
           backgroundColor: '#fff',
-          padding: '16px',
-          borderRadius: '8px',
-          marginBottom: '16px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          border: '1px solid rgba(0,0,0,0.12)'
+          padding: '24px',
+          borderRadius: '12px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+          border: '2px solid #1976d2',
+          marginBottom: '16px'
         }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '24px',
-            marginBottom: '16px',
-            fontSize: '16px',
+          <Typography variant="h5" gutterBottom sx={{ 
+            textAlign: 'center',
+            color: '#1976d2',
             fontWeight: 600,
-            color: 'rgba(0,0,0,0.87)'
+            mb: 3
           }}>
-            <div>Min: ${minBid ?? 0}</div>
-            <div>Max: ${maxBid ?? 0}</div>
-            <div>Cost/Unit: ${gameState?.costPerUnit ?? 0}</div>
-          </div>
+            Enter Your Bid
+          </Typography>
 
-          <div style={{
+          <Box sx={{
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            width: '100%'
+            gap: 2
           }}>
-            <input
-              type="number"
-              value={bid ?? ''}
-              onChange={(e) => setBid(Number(e.target.value))}
-              disabled={!isInputEnabled()}
-              min={minBid ?? 0}
-              max={maxBid ?? 0}
-              step="0.01"
-              style={{
-                width: '96%',
-                padding: '12px',
-                borderRadius: '4px',
-                border: '1px solid rgba(0,0,0,0.23)',
-                fontSize: '16px',
-                marginBottom: '16px',
-                outline: 'none'
-              }}
-              placeholder={`Bid (${minBid ?? 0}-${maxBid ?? 0})`}
-            />
+            <Box sx={{
+              position: 'relative',
+              width: '100%',
+              maxWidth: '300px'
+            }}>
+              <Typography
+                sx={{
+                  position: 'absolute',
+                  left: '20px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  fontSize: '24px',
+                  color: '#1976d2',
+                  zIndex: 1
+                }}
+              >
+                $
+              </Typography>
+              <TextField
+                type="number"
+                value={bid}
+                onChange={(e) => setBid(Number(e.target.value))}
+                disabled={!isInputEnabled()}
+                error={!!error}
+                helperText={error}
+                inputProps={{
+                  min: gameState?.minBid ?? 0,
+                  max: gameState?.maxBid ?? 100,
+                  step: 0.01,
+                  style: {
+                    fontSize: '32px',
+                    textAlign: 'center',
+                    padding: '16px 16px 16px 36px',
+                    fontWeight: 500,
+                    caretColor: '#1976d2'
+                  }
+                }}
+                sx={{
+                  width: '100%',
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '12px',
+                    backgroundColor: '#f8f9fa',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      backgroundColor: '#e9ecef'
+                    },
+                    '&.Mui-focused': {
+                      backgroundColor: '#fff',
+                      boxShadow: '0 0 0 2px #1976d2'
+                    }
+                  }
+                }}
+              />
+            </Box>
 
-            <button
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+              Bid Range: ${gameState?.minBid ?? 0} - ${gameState?.maxBid ?? 100}
+            </Typography>
+
+            <Button
               type="submit"
+              variant="contained"
               disabled={!isInputEnabled() || !bid}
-              style={{
-                width: '96%',
-                padding: '12px',
-                fontSize: '16px',
+              sx={{
+                fontSize: '18px',
+                padding: '12px 36px',
+                borderRadius: '8px',
+                textTransform: 'none',
                 fontWeight: 600,
-                color: '#fff',
-                backgroundColor: !isInputEnabled() || !bid ? '#ccc' : '#1976d2',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: isInputEnabled() && bid ? 'pointer' : 'not-allowed',
-                transition: 'background-color 0.2s'
+                boxShadow: '0 4px 6px rgba(25, 118, 210, 0.2)',
+                '&:hover': {
+                  boxShadow: '0 6px 8px rgba(25, 118, 210, 0.3)'
+                }
               }}
             >
               {hasBidSubmitted ? 'Bid Submitted' :
                isTimedOut ? 'Timed Out' :
                !isGameActive ? 'Waiting for Round' :
                'Submit Bid'}
-            </button>
-          </div>
+            </Button>
+          </Box>
         </div>
       </form>
 
@@ -745,7 +720,7 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
                     whiteSpace: 'nowrap',
                     fontSize: '14px'
                   }}>
-                    #
+                    Round
                   </th>
                   <th style={{ 
                     padding: '12px',
@@ -786,90 +761,54 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {gameState?.roundHistory?.map((round, index) => (
-                  <tr key={index}>
+                {processRoundHistory().map((round) => (
+                  <tr key={round.roundNumber}>
                     <td style={{ 
                       padding: '12px',
                       borderBottom: '1px solid rgba(0,0,0,0.12)',
-                      textAlign: 'left'
+                      fontWeight: 500
                     }}>
-                      {normalizeRoundNumber(index + 1)}
+                      {round.roundNumber}
                     </td>
                     <td style={{ 
                       padding: '12px',
                       borderBottom: '1px solid rgba(0,0,0,0.12)',
-                      fontSize: '13px'
+                      whiteSpace: 'pre-line'
                     }}>
-                      <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '12px'
-                      }}>
-                        {round.rivals.map(rival => (
-                          <div key={rival.name} style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '4px',
-                            padding: '8px',
-                            backgroundColor: 'rgba(0,0,0,0.02)',
-                            borderRadius: '4px'
-                          }}>
-                            <div style={{
-                              fontWeight: 500,
-                              color: 'rgba(0,0,0,0.87)',
-                              marginBottom: '4px'
-                            }}>
-                              {rival.name}
-                            </div>
-                            <div style={{
-                              display: 'grid',
-                              gridTemplateColumns: 'repeat(3, 1fr)',
-                              gap: '8px',
-                              fontSize: '12px',
-                              color: 'rgba(0,0,0,0.6)'
-                            }}>
-                              <div>
-                                <div style={{ marginBottom: '2px', fontWeight: 500 }}>Bid</div>
-                                <div>${rival.bid}</div>
-                              </div>
-                              <div>
-                                <div style={{ marginBottom: '2px', fontWeight: 500 }}>Profit</div>
-                                <div style={{
-                                  color: rival.profit >= 0 ? '#2e7d32' : '#d32f2f'
-                                }}>
-                                  ${rival.profit.toFixed(2)}
-                                </div>
-                              </div>
-                              <div>
-                                <div style={{ marginBottom: '2px', fontWeight: 500 }}>Share</div>
-                                <div>{(rival.marketShare * 100).toFixed(1)}%</div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      {round.rivalStats.map((rival, index) => (
+                        <div key={index}>
+                          {rival.name}:
+                          {'\n'}
+                          Bid: {rival.bid.toFixed(2)}
+                          {'\n'}
+                          Profit: {rival.profit.toFixed(2)}
+                          {'\n'}
+                          %: {(rival.marketShare * 100).toFixed(1)}%
+                          {index < round.rivalStats.length - 1 ? '\n\n' : ''}
+                        </div>
+                      ))}
                     </td>
                     <td style={{ 
                       padding: '12px',
                       borderBottom: '1px solid rgba(0,0,0,0.12)',
                       textAlign: 'right'
                     }}>
-                      ${round.bid}
+                      ${round.ownStats.bid}
                     </td>
                     <td style={{ 
                       padding: '12px',
                       borderBottom: '1px solid rgba(0,0,0,0.12)',
                       textAlign: 'right',
-                      color: round.profit >= 0 ? '#2e7d32' : '#d32f2f'
+                      color: round.ownStats.profit >= 0 ? '#2e7d32' : '#d32f2f'
                     }}>
-                      ${round.profit.toFixed(2)}
+                      ${round.ownStats.profit.toFixed(2)}
                     </td>
                     <td style={{ 
                       padding: '12px',
                       borderBottom: '1px solid rgba(0,0,0,0.12)',
                       textAlign: 'right'
                     }}>
-                      {(round.marketShare * 100).toFixed(1)}%
+                      {(round.ownStats.marketShare * 100).toFixed(1)}%
                     </td>
                   </tr>
                 ))}

@@ -190,10 +190,10 @@ const AdminDashboard: React.FC = () => {
     try {
       if (isRoundActive) {
         // Check all players submitted bids
-        if (!Object.values(gameState?.players || {}).every(p => p.hasSubmittedBid)) {
-          console.warn('Cannot end round: Not all players have submitted bids');
-          return;
-        }
+        // if (!Object.values(gameState?.players || {}).every(p => p.hasSubmittedBid)) {
+        //   console.warn('Cannot end round: Not all players have submitted bids');
+        //   return;
+        // }
         await endCurrentRound();
       } else {
         // Check round limit
@@ -339,6 +339,18 @@ const AdminDashboard: React.FC = () => {
                         Player Tracking
                       </Typography>
                       <PlayerTrackingTable playerStats={playerStats} />
+                    </Paper>
+                  </Grid>
+                )}
+
+                {/* Add Rivalry Table */}
+                {currentSessionId && gameState && (
+                  <Grid item xs={12}>
+                    <Paper sx={{ p: 3 }}>
+                      <Typography variant="h6" gutterBottom>
+                        Rivalries
+                      </Typography>
+                      <RivalryTable />
                     </Paper>
                   </Grid>
                 )}

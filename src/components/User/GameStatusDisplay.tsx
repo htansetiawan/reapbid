@@ -66,7 +66,7 @@ const GameStatusDisplay: React.FC<GameStatusDisplayProps> = ({
               <LinearProgress
                 variant="determinate"
                 value={timeProgress}
-                sx={{ mt: 1 }}
+                sx={{ mt: 1, height: 8, borderRadius: 4 }}
               />
             </>
           )}
