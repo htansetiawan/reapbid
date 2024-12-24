@@ -25,13 +25,26 @@ const cellStyle = {
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'Submitted':
-      return '#28a745';
+      return '#28a745';  // Green for submitted
     case 'Timed Out':
-      return '#dc3545';
+      return '#dc3545';  // Red for timed out
+    case 'Active':
+      return '#ffc107';  // Yellow for active
     default:
-      return '#ffc107';
+      return '#6c757d';  // Grey for unknown status
   }
 };
+
+const getStatusStyle = (status: string) => ({
+  ...cellStyle,
+  color: '#fff',
+  backgroundColor: getStatusColor(status),
+  borderRadius: '4px',
+  padding: '4px 8px',
+  textAlign: 'center' as const,
+  display: 'inline-block',
+  minWidth: '80px'
+});
 
 const ROWS_PER_PAGE = 10;
 
@@ -105,15 +118,9 @@ const PlayerTrackingTable: React.FC<PlayerTrackingTableProps> = ({ playerStats }
               }}>
                 <td style={{ ...cellStyle, fontWeight: 500 }}>{playerId}</td>
                 <td style={cellStyle}>
-                  <span style={{
-                    padding: '4px 8px',
-                    backgroundColor: getStatusColor(stats.status),
-                    color: 'white',
-                    borderRadius: '4px',
-                    fontSize: '12px'
-                  }}>
+                  <div style={getStatusStyle(stats.status)}>
                     {stats.status}
-                  </span>
+                  </div>
                 </td>
                 <td style={cellStyle}>{stats.currentBid}</td>
                 <td style={cellStyle}>${stats.totalProfit.toFixed(2)}</td>

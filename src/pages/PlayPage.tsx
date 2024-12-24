@@ -13,23 +13,44 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useGame } from '../context/GameContext';
+import { useSession } from '../context/SessionContext';
 import BiddingInterface from '../components/User/BiddingInterface';
+import SessionSelectionDialog from '../components/User/SessionSelectionDialog';
+import GameStatusDisplay from '../components/User/GameStatusDisplay';
 
 const PlayPage: React.FC = () => {
   const { user } = useAuth();
   const { gameState, registerPlayer } = useGame();
+  const { currentSessionId, selectSession, exitSession } = useSession();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   const [error, setError] = useState<string>('');
   const [hasJoined, setHasJoined] = useState(false);
   const [gameStatus, setGameStatus] = useState<string>('');
+  const [showSessionDialog, setShowSessionDialog] = useState(false);
 
   // Extract name from email (everything before @) and normalize by removing dots
   const playerName = user?.email ? user.email.split('@')[0].replace(/\./g, '') : '';
 
+  // Check for stored session on mount
+  useEffect(() => {
+    const storedSession = localStorage.getItem('sessionId');
+    if (storedSession) {
+      selectSession(storedSession);
+    } else {
+      setShowSessionDialog(true);
+    }
+  }, []);
+
   // Subscribe to game state changes
   useEffect(() => {
+    if (!currentSessionId) {
+      setGameStatus('Select a Session');
+      return;
+    }
+
     if (gameState?.isActive && !hasJoined) {
       setGameStatus('Round in Progress!');
     } else if (!gameState?.hasGameStarted) {
@@ -39,10 +60,17 @@ const PlayPage: React.FC = () => {
     } else if (!gameState?.isActive && gameState?.hasGameStarted) {
       setGameStatus('Next Round Starting Soon!');
     }
-  }, [gameState?.isActive, gameState?.hasGameStarted, gameState?.isEnded, hasJoined]);
+  }, [currentSessionId, gameState?.isActive, gameState?.hasGameStarted, gameState?.isEnded, hasJoined]);
 
   // Check if player is already registered
   useEffect(() => {
+    console.log('Checking player registration:', {
+      playerName,
+      players: gameState?.players,
+      hasJoined,
+      isRegistered: gameState?.players?.[playerName]
+    });
+
     if (gameState?.players?.[playerName]) {
       setHasJoined(true);
     }
@@ -50,182 +78,127 @@ const PlayPage: React.FC = () => {
 
   const handleJoinGame = async () => {
     try {
-      setError('');
-
-      // Check if game has started
-      if (!gameState?.hasGameStarted) {
-        setError('The game has not started yet. Please wait for the host to start the game.');
-        return;
-      }
-
-      // Check if game is already full
-      if (Object.keys(gameState?.players || {}).length >= (gameState?.maxPlayers ?? 0)) {
-        setError('The game is full. Please try again later.');
-        return;
-      }
-
-      // Register the player
+      console.log('Joining game:', playerName);
       await registerPlayer(playerName);
       setHasJoined(true);
+      setError('');
     } catch (err) {
-      setError('Failed to join the game. Please try again.');
-      console.error('Error joining game:', err);
+      console.error('Failed to join game:', err);
+      setError(err instanceof Error ? err.message : 'Failed to join game');
     }
   };
 
-  const getDisplayRound = () => {
-    const currentRound = gameState?.currentRound ?? 0;
-    const totalRounds = gameState?.totalRounds ?? 0;
-    return Math.min(currentRound, totalRounds);
+  const handleSelectSession = async (sessionId: string) => {
+    try {
+      console.log('Selecting session:', sessionId);
+      await selectSession(sessionId);
+      localStorage.setItem('sessionId', sessionId);
+      setShowSessionDialog(false);
+      setError('');
+    } catch (err) {
+      console.error('Failed to select session:', err);
+      setError(err instanceof Error ? err.message : 'Failed to select session');
+    }
   };
 
-  // If player has joined, show BiddingInterface
-  if (hasJoined) {
-    return <BiddingInterface playerName={playerName} />;
+  const handleExitSession = () => {
+    localStorage.removeItem('sessionId');
+    setHasJoined(false);
+    exitSession();
+    setShowSessionDialog(true);
+  };
+
+  if (!currentSessionId) {
+    return (
+      <Container maxWidth="sm" sx={{ mt: 4 }}>
+        <Card>
+          <CardContent>
+            <Typography variant="h5" gutterBottom>
+              Welcome to RepeatBid
+            </Typography>
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              Please select a game session to continue.
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={() => setShowSessionDialog(true)}
+              fullWidth
+            >
+              Select Session
+            </Button>
+          </CardContent>
+        </Card>
+        <SessionSelectionDialog
+          open={showSessionDialog}
+          onClose={() => setShowSessionDialog(false)}
+          onSelectSession={handleSelectSession}
+        />
+      </Container>
+    );
   }
 
   return (
-    <Container maxWidth="md">
-      <Box
-        sx={{
-          minHeight: 'calc(100vh - 64px)', // Account for navbar height
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          py: 4,
-        }}
-      >
-        <Card
-          elevation={3}
-          sx={{
-            width: '100%',
-            maxWidth: 480,
-            borderRadius: 2,
-            bgcolor: 'background.paper',
-          }}
-        >
-          <CardContent sx={{ p: 4 }}>
-            {/* Header */}
-            <Typography
-              variant="h4"
-              align="center"
-              gutterBottom
-              sx={{
-                fontWeight: 600,
-                color: 'primary.main',
-                mb: 3,
-                letterSpacing: '-0.5px',
-              }}
-            >
-              ReapBid
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h4" component="h1">
+          Game Session
+        </Typography>
+        {currentSessionId && (
+          <Button
+            variant="outlined"
+            color="secondary"
+            onClick={handleExitSession}
+            sx={{ ml: 2 }}
+          >
+            Exit Session
+          </Button>
+        )}
+      </Box>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      <GameStatusDisplay
+        playerName={playerName}
+        gameStatus={gameStatus}
+      />
+
+      {!hasJoined ? (
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Join Game
             </Typography>
-
-            {/* Game Status */}
-            <Typography
-              variant="h6"
-              align="center"
-              gutterBottom
-              sx={{ color: 'text.primary', mb: 2 }}
-            >
-              {gameState?.hasGameStarted ? 'Game in Progress' : 'Waiting for Game to Start'}
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              You'll be registered as: {playerName}
             </Typography>
-
-            {/* Error Message */}
-            {error && (
-              <Alert severity="error" sx={{ mb: 3 }}>
-                {error}
-              </Alert>
-            )}
-
-            {/* Display Name */}
-            <Typography
-              variant="body1"
-              align="center"
-              sx={{ 
-                color: 'text.secondary',
-                mb: 4,
-                fontWeight: 500,
-                bgcolor: 'action.hover',
-                py: 2,
-                px: 3,
-                borderRadius: 1,
-              }}
-            >
-              You will play as: {playerName}
-            </Typography>
-
-            {/* Game Info */}
-            <Box sx={{ mb: 4 }}>
-              <Typography variant="body2" color="text.secondary" align="center">
-                Players: {Object.keys(gameState?.players || {}).length} / {gameState?.maxPlayers ?? 0}
-              </Typography>
-              {gameState?.hasGameStarted && (
-                <>
-                  <Typography variant="body1" align="center" style={{
-                    marginBottom: '8px',
-                    color: 'rgba(0,0,0,0.6)',
-                    fontSize: '14px'
-                  }}>
-                    Round: {getDisplayRound()} / {gameState?.totalRounds ?? 0}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 1 }}>
-                    Cost per Unit: ${gameState?.costPerUnit ?? 0}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 1 }}>
-                    Bid Range: ${gameState?.minBid ?? 0} - ${gameState?.maxBid ?? 0}
-                  </Typography>
-                </>
-              )}
-              {/* Game Status Alert */}
-              {gameStatus && (
-                <Alert
-                  severity={gameState?.isActive ? "info" : "warning"}
-                  sx={{ 
-                    mt: 2,
-                    '& .MuiAlert-message': {
-                      width: '100%',
-                      textAlign: 'center'
-                    }
-                  }}
-                >
-                  {gameStatus}
-                </Alert>
-              )}
-            </Box>
-
-            {/* Join Button */}
             <Button
-              fullWidth
               variant="contained"
-              size="large"
               onClick={handleJoinGame}
-              disabled={!gameState?.hasGameStarted}
-              sx={{
-                height: 48,
-                textTransform: 'none',
-                fontSize: '1rem',
-                fontWeight: 500,
-                borderRadius: 1,
-              }}
+              fullWidth={isMobile}
             >
-              {gameState?.hasGameStarted ? 'Join Game' : 'Waiting for Game to Start...'}
+              Join Game
             </Button>
-
-            {/* Instructions */}
-            <Typography
-              variant="body2"
-              align="center"
-              color="text.secondary"
-              sx={{ mt: 3 }}
-            >
-              {gameState?.hasGameStarted 
-                ? 'Click Join Game to start bidding'
-                : 'Please wait for the host to start the game'}
-            </Typography>
           </CardContent>
         </Card>
-      </Box>
+      ) : (
+        <BiddingInterface
+          playerName={playerName}
+          isActive={gameState?.isActive ?? false}
+          hasSubmittedBid={gameState?.players?.[playerName]?.hasSubmittedBid ?? false}
+          isTimedOut={gameState?.players?.[playerName]?.isTimedOut ?? false}
+          minBid={gameState?.minBid}
+          maxBid={gameState?.maxBid}
+        />
+      )}
+
+      <SessionSelectionDialog
+        open={showSessionDialog}
+        onClose={() => setShowSessionDialog(false)}
+        onSelectSession={handleSelectSession}
+      />
     </Container>
   );
 };

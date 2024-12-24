@@ -2,6 +2,7 @@ import { ref, get, set, onValue, off, update } from 'firebase/database';
 import { database } from '../firebase/config';
 import { StorageAdapter } from './StorageAdapter';
 import { GameState, Player } from '../context/GameContext';
+import { SessionMetadata } from './SessionStorageAdapter';
 
 export class FirebaseStorageAdapter implements StorageAdapter {
   private gameRef = ref(database, 'games/current');
@@ -112,12 +113,11 @@ export class FirebaseStorageAdapter implements StorageAdapter {
   async extendRoundTime(additionalSeconds: number): Promise<void> {
     try {
       const snapshot = await get(this.gameRef);
-      const currentState = snapshot.val() as GameState;
-      if (!currentState) return;
-
-      await update(this.gameRef, {
-        roundTimeLimit: currentState.roundTimeLimit + additionalSeconds
-      });
+      const gameState = snapshot.val() as GameState;
+      if (gameState && gameState.roundStartTime !== null) {
+        const updatedRoundStartTime = gameState.roundStartTime + (additionalSeconds * 1000);
+        await update(this.gameRef, { roundStartTime: updatedRoundStartTime });
+      }
     } catch (error) {
       console.error('Error extending round time:', error);
       throw error;
@@ -126,15 +126,40 @@ export class FirebaseStorageAdapter implements StorageAdapter {
 
   async updateRivalries(rivalries: Record<string, string[]>): Promise<void> {
     try {
-      console.log('FirebaseStorageAdapter - Updating rivalries:', rivalries);
-      const updates = {
-        'rivalries': rivalries  // Use explicit path to update only rivalries
-      };
-      await update(this.gameRef, updates);
+      await update(this.gameRef, { rivalries });
     } catch (error) {
       console.error('Error updating rivalries:', error);
       throw error;
     }
+  }
+
+  async createSession(name: string): Promise<string> {
+    // Legacy implementation for backward compatibility
+    return 'firebase-session';
+  }
+
+  async listSessions(): Promise<SessionMetadata[]> {
+    throw new Error('Session management not supported in legacy adapter');
+  }
+
+  async updateSessionStatus(sessionId: string, status: 'active' | 'completed' | 'archived'): Promise<void> {
+    throw new Error('Session management not supported in legacy adapter');
+  }
+
+  setCurrentSession(sessionId: string): void {
+    throw new Error('Session management not supported in legacy adapter');
+  }
+
+  async loadSession(sessionId: string): Promise<GameState | null> {
+    throw new Error('Session management not supported in legacy adapter');
+  }
+
+  async saveSession(sessionId: string, gameState: GameState): Promise<void> {
+    throw new Error('Session management not supported in legacy adapter');
+  }
+
+  async deleteSession(sessionId: string): Promise<void> {
+    throw new Error('Session management not supported in legacy adapter');
   }
 
   cleanup(): void {

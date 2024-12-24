@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { StorageFactory, StorageType } from '../storage/StorageFactory';
+import { useSession } from './SessionContext';
 
 export interface Player {
   name: string;
@@ -15,6 +16,15 @@ export interface RoundResult {
   marketShares: Record<string, number>;
   profits: Record<string, number>;
   timestamp: number;
+  bid: number;  // Individual player's bid for the round
+  profit: number;  // Individual player's profit for the round
+  marketShare: number;  // Individual player's market share for the round
+  rivals: Array<{
+    name: string;
+    bid: number;
+    profit: number;
+    marketShare: number;
+  }>;
 }
 
 export interface GameState {
@@ -33,6 +43,10 @@ export interface GameState {
   roundBids: Record<string, number>;
   roundHistory: RoundResult[];
   rivalries: Record<string, string[]>;
+  totalProfit: number;  // Total profit across all rounds
+  averageMarketShare: number;  // Average market share across all rounds
+  bestRound: number;  // Round number with highest profit
+  bestRoundProfit: number;  // Profit from the best round
 }
 
 interface GameConfig {
@@ -78,7 +92,11 @@ const initialGameState: GameState = {
   players: {},
   roundBids: {},
   roundHistory: [],
-  rivalries: {}
+  rivalries: {},
+  totalProfit: 0,
+  averageMarketShare: 0,
+  bestRound: 0,
+  bestRoundProfit: 0
 };
 
 const DEFAULT_ALPHA = 0.1; // Default price sensitivity
@@ -172,38 +190,120 @@ export const useGame = () => {
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [gameState, setGameState] = useState<GameState>(initialGameState);
-  const storage = StorageFactory.getStorage(StorageType.Firebase);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const { currentSessionId } = useSession();
+  const storage = StorageFactory.getInstance(currentSessionId ? StorageType.Session : StorageType.Firebase);
 
   useEffect(() => {
+    if (isUpdating) {
+      console.log('Game state is already updating, skipping subscription setup');
+      return;
+    }
+
+    console.log('Current session ID changed:', currentSessionId);
+    
+    if (!currentSessionId) {
+      console.log('No session selected, using current');
+      storage.setCurrentSession('current');
+    } else {
+      console.log('Setting current session:', currentSessionId);
+      storage.setCurrentSession(currentSessionId);
+    }
+
     // Initialize game state from storage
     const initializeGameState = async () => {
-      const storedState = await storage.getGameState();
-      if (storedState) {
-        setGameState(storedState);
+      try {
+        setIsUpdating(true);
+        console.log('Initializing game state...');
+        const storedState = await storage.getGameState();
+        console.log('Stored state:', storedState);
+        
+        if (storedState) {
+          // Ensure we preserve all fields and their proper types
+          const normalizedState = {
+            ...initialGameState,  // Start with default values
+            ...storedState,       // Override with stored values
+            // Ensure critical fields are properly typed
+            hasGameStarted: Boolean(storedState.hasGameStarted),
+            isActive: Boolean(storedState.isActive),
+            isEnded: Boolean(storedState.isEnded),
+            players: storedState.players || {},
+            roundBids: storedState.roundBids || {},
+            roundHistory: storedState.roundHistory || [],
+            rivalries: storedState.rivalries || {}
+          };
+          console.log('Setting normalized state:', normalizedState);
+          setGameState(normalizedState);
+        } else {
+          console.log('No stored state found, using initial state');
+          setGameState(initialGameState);
+        }
+      } catch (error) {
+        console.error('Error initializing game state:', error);
+      } finally {
+        setIsUpdating(false);
       }
     };
 
-    // Subscribe to game state changes
-    const unsubscribe = storage.subscribeToGameState((newState) => {
-      setGameState(newState);
-    });
-
     initializeGameState();
 
-    // Cleanup subscription on unmount
+    // Subscribe to game state changes
+    console.log('Setting up game state subscription');
+    const unsubscribe = storage.subscribeToGameState((newState: GameState) => {
+      if (isUpdating) {
+        console.log('Already updating game state, skipping subscription update');
+        return;
+      }
+
+      console.log('Received new game state:', newState);
+      if (newState) {
+        setIsUpdating(true);
+        // Apply the same normalization to subscription updates
+        const normalizedState = {
+          ...initialGameState,
+          ...newState,
+          hasGameStarted: Boolean(newState.hasGameStarted),
+          isActive: Boolean(newState.isActive),
+          isEnded: Boolean(newState.isEnded),
+          players: newState.players || {},
+          roundBids: newState.roundBids || {},
+          roundHistory: newState.roundHistory || [],
+          rivalries: newState.rivalries || {}
+        };
+        console.log('Setting normalized subscription state:', normalizedState);
+        setGameState(normalizedState);
+        setIsUpdating(false);
+      }
+    });
+
     return () => {
+      console.log('Cleaning up game state subscription');
       unsubscribe();
-      storage.cleanup();
+      setIsUpdating(false);
     };
-  }, []);
+  }, [currentSessionId, isUpdating]); // Re-run effect when session changes
 
   const startGame = async (config: GameConfig) => {
     const newState: GameState = {
-      ...initialGameState,
-      ...config,
       hasGameStarted: true,
-      isActive: false,
+      isActive: true,
+      isEnded: false,
       currentRound: 1,
+      totalRounds: config.totalRounds,
+      roundTimeLimit: config.roundTimeLimit,
+      roundStartTime: null,
+      minBid: config.minBid,
+      maxBid: config.maxBid,
+      costPerUnit: config.costPerUnit,
+      maxPlayers: config.maxPlayers,
+      players: {},
+      roundBids: {},
+      roundHistory: [],
+      rivalries: {},
+      totalProfit: 0,
+      averageMarketShare: 0,
+      bestRound: 0,
+      bestRoundProfit: 0
     };
     await storage.updateGameState(newState);
   };
@@ -213,8 +313,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Auto-assign rivals if it's the first round and rivals haven't been assigned
     if (gameState.hasGameStarted && gameState.currentRound === 1 && !gameState.isActive) {
-      const allPlayers = Object.keys(gameState.players);
-      const hasRivalries = Object.values(gameState.rivalries || {}).some(rivals => rivals?.length > 0);
+      const players = gameState.players ?? {};
+      const allPlayers = Object.keys(players);
+      const hasRivalries = Object.values(gameState.rivalries ?? {}).some(rivals => rivals?.length > 0);
 
       if (!hasRivalries && allPlayers.length >= 2) {
         console.log('Auto-assigning rivals at start of round 1');
@@ -226,105 +327,216 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
+    // Reset all player states for the new round
+    const updatedPlayers = Object.fromEntries(
+      Object.entries(gameState.players ?? {}).map(([name, player]) => [
+        name,
+        { ...player, hasSubmittedBid: false, currentBid: null, isTimedOut: false }
+      ])
+    );
+
+    // Update game state for the new round
     const updatedState = {
-      ...gameState,
+      ...gameState,  // Preserve all existing fields
+      hasGameStarted: true,
       isActive: true,
+      isEnded: false,
       roundStartTime: Date.now(),
       roundBids: {},
-      players: Object.fromEntries(
-        Object.entries(gameState.players).map(([name, player]) => [
-          name,
-          { ...player, hasSubmittedBid: false, currentBid: null }
-        ])
-      )
+      players: updatedPlayers,
+      totalProfit: gameState.totalProfit || 0,
+      averageMarketShare: gameState.averageMarketShare || 0,
+      bestRound: gameState.bestRound || 0,
+      bestRoundProfit: gameState.bestRoundProfit || 0,
+      rivalries: gameState.rivalries || {},
+      roundHistory: gameState.roundHistory || []
     };
-    await storage.updateGameState(updatedState);
+
+    try {
+      console.log('Starting round with state:', updatedState);
+      await storage.updateGameState(updatedState);
+      console.log('Round started successfully');
+    } catch (error) {
+      console.error('Error starting round:', error);
+      throw error;
+    }
   };
 
   const endCurrentRound = async () => {
+    if (!gameState) return;
+
+    console.log('Ending current round with game state:', gameState);
+
     // Get all players and their rivals with safe accessors
-    const allPlayers = Object.keys(gameState?.players || {});
+    const allPlayers = Object.keys(gameState.players || {});
     const marketShares: Record<string, number> = {};
     const profits: Record<string, number> = {};
     const roundBids: Record<string, number> = {};
 
     // Initialize all players with 0 bids and market shares
     allPlayers.forEach(player => {
-      roundBids[player] = 0;
+      roundBids[player] = gameState.roundBids?.[player] || 0;
       marketShares[player] = 0;
       profits[player] = 0;
     });
 
-    // Update bids for players who submitted them
-    Object.entries(gameState?.roundBids || {}).forEach(([player, bid]) => {
-      roundBids[player] = bid;
-    });
+    console.log('Round bids:', roundBids);
 
-    // First pass: Calculate market shares for each player and their rivals
+    // Calculate market shares for each player and their rivals
     allPlayers.forEach(player => {
-      const rivals = gameState?.rivalries?.[player] || [];
-      if (rivals.length === 0) return;
+      const rivals = gameState.rivalries?.[player] || [];
+      console.log(`Calculating market share for player ${player} with rivals:`, rivals);
+
+      if (rivals.length === 0) {
+        console.log(`No rivals for player ${player}, skipping market share calculation`);
+        return;
+      }
 
       const playerBid = roundBids[player];
       const rivalBids = rivals.map(rival => roundBids[rival]);
       
+      console.log('Player bid:', playerBid);
+      console.log('Rival bids:', rivalBids);
+
       if (playerBid === 0) {
+        console.log(`Player ${player} bid is 0, setting market share to 0`);
         marketShares[player] = 0;
       } else {
-        const allBids = [playerBid, ...rivalBids];
-        marketShares[player] = calculateMarketShare(playerBid, allBids);
+        const allBids = [playerBid, ...rivalBids].filter(bid => bid > 0);
+        if (allBids.length > 0) {
+          marketShares[player] = calculateMarketShare(playerBid, allBids);
+          console.log(`Calculated market share for player ${player}:`, marketShares[player]);
+        }
       }
     });
 
-    // Second pass: Calculate profits based on market shares
+    console.log('Market shares after calculation:', marketShares);
+
+    // Calculate profits based on market shares
+    let totalRoundProfit = 0;
     allPlayers.forEach(player => {
-      if (marketShares[player] > 0) {
+      const playerMarketShare = marketShares[player];
+      const playerBid = roundBids[player];
+      
+      console.log(`Calculating profit for player ${player}:`, {
+        bid: playerBid,
+        marketShare: playerMarketShare,
+        costPerUnit: gameState.costPerUnit
+      });
+
+      if (playerMarketShare > 0 && playerBid > 0) {
         profits[player] = calculateProfit(
-          roundBids[player],
-          marketShares[player],
-          gameState?.costPerUnit ?? 0
+          playerBid,
+          playerMarketShare,
+          gameState.costPerUnit ?? 0
         );
+        totalRoundProfit += profits[player];
+        console.log(`Calculated profit for player ${player}:`, profits[player]);
       }
     });
 
-    // Create round result
+    console.log('Final profits:', profits);
+    console.log('Total round profit:', totalRoundProfit);
+
+    // Create round result with rivals information
     const roundResult: RoundResult = {
-      round: gameState?.currentRound ?? 1,
+      round: gameState.currentRound,
       bids: roundBids,
       marketShares,
       profits,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      bid: 0,
+      profit: 0,
+      marketShare: 0,
+      rivals: allPlayers.map(player => {
+        const playerRivals = gameState.rivalries?.[player] || [];
+        return {
+          name: player,
+          bid: roundBids[player],
+          profit: profits[player],
+          marketShare: marketShares[player]
+        };
+      })
     };
+
+    // Calculate total profit and average market share
+    const newTotalProfit = (gameState.totalProfit || 0) + totalRoundProfit;
+    const newAverageMarketShare = Object.values(marketShares).reduce((acc, share) => acc + share, 0) / allPlayers.length;
+
+    // Check if this is the best round
+    const isBestRound = totalRoundProfit > (gameState.bestRoundProfit || 0);
 
     // Update game state
     const newState = {
       ...gameState,
-      isActive: false,
       roundStartTime: null,
-      currentRound: (gameState?.currentRound ?? 1) + 1,
-      roundHistory: [...(gameState?.roundHistory || []), roundResult]
+      currentRound: gameState.currentRound + 1,
+      roundHistory: [...(gameState.roundHistory || []), roundResult],
+      totalProfit: newTotalProfit,
+      averageMarketShare: newAverageMarketShare,
+      bestRound: isBestRound ? gameState.currentRound : (gameState.bestRound || 0),
+      bestRoundProfit: isBestRound ? totalRoundProfit : (gameState.bestRoundProfit || 0)
     };
 
+    console.log('Updating game state with new state:', newState);
     await storage.updateGameState(newState);
   };
 
   const endGame = async () => {
-    const newState = {
-      ...gameState,
-      isActive: false,
-      isEnded: true
-    };
-    await storage.updateGameState(newState);
+    setIsUpdating(true);
+    try {
+      const newState = {
+        ...gameState,
+        isActive: false,
+        isEnded: true
+      };
+      await storage.updateGameState(newState);
+      
+      // Automatically update session status to completed when game ends
+      if (currentSessionId) {
+        try {
+          await storage.updateSessionStatus(currentSessionId, 'completed');
+        } catch (error) {
+          console.error('Error updating session status:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Error ending game:', error);
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const registerPlayer = async (playerName: string) => {
+    if (!gameState) {
+      throw new Error('Game state not initialized');
+    }
+
+    console.log('Registering player:', playerName);
+    console.log('Current game state:', gameState);
+
+    // Check if player already exists
+    if (gameState.players?.[playerName]) {
+      console.log('Player already registered:', playerName);
+      return;
+    }
+
+    // Create new player data
     const playerData: Player = {
       name: playerName,
       currentBid: null,
       hasSubmittedBid: false,
       lastBidTime: null,
     };
-    await storage.addPlayer(playerName, playerData);
+
+    try {
+      console.log('Adding player to storage:', playerData);
+      await storage.addPlayer(playerName, playerData);
+      console.log('Player registered successfully');
+    } catch (error) {
+      console.error('Error registering player:', error);
+      throw error;
+    }
   };
 
   const unregisterPlayer = async (playerName: string) => {

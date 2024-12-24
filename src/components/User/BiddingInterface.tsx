@@ -5,6 +5,11 @@ import { useAuth } from '../../context/AuthContext';
 
 interface BiddingInterfaceProps {
   playerName: string;
+  isActive?: boolean;
+  hasSubmittedBid?: boolean;
+  isTimedOut?: boolean;
+  minBid?: number;
+  maxBid?: number;
 }
 
 interface StatBoxProps {
@@ -20,28 +25,27 @@ const StatBox: React.FC<StatBoxProps> = ({ label, value }) => (
     borderRadius: '4px',
     border: '1px solid rgba(0,0,0,0.12)'
   }}>
-    <div style={{
-      fontSize: '14px',
-      color: 'rgba(0,0,0,0.6)',
-      marginBottom: '8px'
-    }}>
+    <div style={{ fontSize: '14px', color: 'rgba(0,0,0,0.6)', marginBottom: '8px' }}>
       {label}
     </div>
-    <div style={{
-      fontSize: '20px',
-      color: 'rgba(0,0,0,0.87)',
-      fontWeight: 500
-    }}>
+    <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
       {value}
     </div>
   </div>
 );
 
-const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
+const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
+  playerName,
+  isActive: isGameActive,
+  hasSubmittedBid: hasBidSubmitted,
+  isTimedOut,
+  minBid,
+  maxBid
+}) => {
   const { gameState, submitBid, registerPlayer } = useGame();
   const { user } = useAuth();
   const [bid, setBid] = useState<number | null>(null);
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
   const [remainingTime, setRemainingTime] = useState('--:--');
   const navigate = useNavigate();
@@ -49,10 +53,16 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
   const isGameEnded = gameState?.isEnded;
   const isFinalRound = (gameState?.currentRound ?? 0) === (gameState?.totalRounds ?? 0);
 
+  // Add utility function for round display
+  const normalizeRoundNumber = (round: number) => {
+    const totalRounds = gameState?.totalRounds ?? 0;
+    return Math.min(round + 1, totalRounds);
+  };
+
   const getDisplayRound = () => {
     const currentRound = gameState?.currentRound ?? 0;
     const totalRounds = gameState?.totalRounds ?? 0;
-    return `${Math.min(currentRound, totalRounds)}/${totalRounds}`;
+    return `${normalizeRoundNumber(currentRound)}/${totalRounds}`;
   };
 
   // Track game state changes
@@ -133,119 +143,29 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
     return () => clearInterval(interval);
   }, [playerName, gameState?.players, navigate]);
 
-  const handleRegister = () => {
-    if (!playerName.trim()) {
-      setError('Please enter your name');
-      return;
-    }
-
-    if (Object.keys(gameState?.players || {}).length >= (gameState?.maxPlayers ?? 0)) {
-      setError(`Game is full (maximum ${gameState?.maxPlayers ?? 0} players). Please wait for the next game.`);
-      return;
-    }
-
-    registerPlayer(playerName);
-    setIsRegistered(true);
-    setError('');
+  const isInputEnabled = () => {
+    return isGameActive && !hasBidSubmitted && !isTimedOut;
   };
 
-  // Redirect if not registered
-  if (!playerName || !gameState?.players?.[playerName]) {
-    const isGameFull = Object.keys(gameState?.players || {}).length >= (gameState?.maxPlayers ?? 0);
-
-    if (isGameFull) {
-      return (
-        <div style={{ 
-          padding: '40px',
-          maxWidth: '400px',
-          margin: '0 auto',
-          textAlign: 'center'
-        }}>
-          <div style={{
-            backgroundColor: '#f8f9fa',
-            color: '#721c24',
-            padding: '30px',
-            borderRadius: '8px',
-            marginBottom: '20px',
-            border: '1px solid #f5c6cb'
-          }}>
-            <h2 style={{
-              color: '#212529',
-              marginBottom: '20px',
-              fontSize: '24px'
-            }}>
-              Game is Full
-            </h2>
-            <div style={{
-              color: '#6c757d',
-              fontSize: '16px',
-              lineHeight: '1.5'
-            }}>
-              <p>Maximum number of players ({gameState?.maxPlayers ?? 0}) has been reached.</p>
-              <p>Thank you for your interest in participating!</p>
-              <p>Please join us for the next game.</p>
-            </div>
-            <div style={{
-              marginTop: '20px',
-              padding: '10px',
-              backgroundColor: '#e9ecef',
-              borderRadius: '4px',
-              color: '#495057',
-              fontSize: '14px'
-            }}>
-              Current Players: {Object.keys(gameState?.players || {}).length} / {gameState?.maxPlayers ?? 0}
-            </div>
-          </div>
-        </div>
-      );
+  const handleBidSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bid) {
+      setError('Please enter a bid');
+      return;
     }
 
-    return (
-      <div style={{ 
-        padding: '16px',
-        maxWidth: '800px',
-        margin: '0 auto',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '16px'
-      }}>
-        <div style={{
-          backgroundColor: '#fff',
-          padding: '24px',
-          borderRadius: '8px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          border: '1px solid rgba(0,0,0,0.12)',
-          textAlign: 'center',
-          width: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '16px'
-        }}>
-          <div style={{
-            backgroundColor: '#fff4e5',
-            padding: '12px 24px',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            <span style={{
-              color: '#ed6c02',
-              fontSize: '20px'
-            }}>⚠</span>
-            <span style={{
-              color: 'rgba(0,0,0,0.87)',
-              fontWeight: 500
-            }}>
-              Starting in {remainingTime}
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  }
+    if (bid < (minBid ?? 0) || bid > (maxBid ?? Infinity)) {
+      setError(`Bid must be between ${minBid} and ${maxBid}`);
+      return;
+    }
+
+    try {
+      await submitBid(playerName, bid);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit bid');
+    }
+  };
 
   const playerState = gameState?.players?.[playerName] || {
     name: playerName,
@@ -296,137 +216,7 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
     );
   }
 
-  const hasSubmittedBid = playerState.hasSubmittedBid;
-
-  const handleBidSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (bid === null || !playerName) return;
-
-    console.log('Submitting bid:', {
-      playerName,
-      bid,
-      isActive: gameState?.isActive,
-      currentRound: gameState?.currentRound
-    });
-
-    if (bid < (gameState?.minBid ?? 0) || bid > (gameState?.maxBid ?? 0)) {
-      alert(`Bid must be between $${gameState?.minBid ?? 0} and $${gameState?.maxBid ?? 0}`);
-      return;
-    }
-
-    submitBid(playerName, bid);
-    setBid(null);
-  };
-
-  const canSubmitBid = () => {
-    const conditions = {
-      hasGameStarted: gameState?.hasGameStarted,
-      isActive: gameState?.isActive,
-      hasSubmittedBid: playerState.hasSubmittedBid,
-      isRegistered,
-      hasBidValue: bid !== null,
-      playerName: !!playerName,
-      roundActive: (gameState?.currentRound ?? 0) > 0 && (gameState?.currentRound ?? 0) <= (gameState?.totalRounds ?? 0)
-    };
-
-    console.log('Bid submission conditions:', conditions);
-
-    const canSubmit = 
-      conditions.hasGameStarted &&
-      conditions.isActive &&
-      !conditions.hasSubmittedBid &&
-      conditions.isRegistered &&
-      conditions.hasBidValue &&
-      conditions.playerName &&
-      conditions.roundActive;
-
-    console.log('Can submit bid:', canSubmit);
-    return canSubmit;
-  };
-
-  const isInputEnabled = () => {
-    const conditions = {
-      hasGameStarted: gameState?.hasGameStarted,
-      isActive: gameState?.isActive,
-      hasSubmittedBid: playerState.hasSubmittedBid,
-      roundActive: (gameState?.currentRound ?? 0) > 0 && (gameState?.currentRound ?? 0) <= (gameState?.totalRounds ?? 0)
-    };
-
-    console.log('Input enabled conditions:', conditions);
-    return conditions.hasGameStarted && conditions.isActive && !conditions.hasSubmittedBid && conditions.roundActive;
-  };
-
-  // Helper functions for statistics
-  const getRivalStats = () => {
-    if (!gameState?.rivalries || !gameState?.rivalries[playerName]) {
-      return [];
-    }
-
-    const rivals = gameState.rivalries[playerName];
-    const stats = gameState.roundHistory.map(round => {
-      const playerBid = round.bids[playerName] || 0;
-      const playerProfit = round.profits[playerName] || 0;
-      const playerMarketShare = round.marketShares[playerName] || 0;
-
-      const rivalData = rivals.map(rival => ({
-        name: rival,
-        bid: round.bids[rival] || 0,
-        profit: round.profits[rival] || 0,
-        marketShare: round.marketShares[rival] || 0
-      }));
-
-      return {
-        round: round.round,
-        playerBid,
-        playerProfit,
-        playerMarketShare,
-        rivals: rivalData
-      };
-    });
-
-    return stats;
-  };
-
-  const getTotalProfit = () => {
-    const roundHistory = gameState?.roundHistory || [];
-    const playerRoundData = roundHistory.map(round => ({
-      profit: round.profits?.[playerName] || 0,
-    }));
-
-    // Calculate total profit
-    const totalProfit = playerRoundData.reduce((sum, round) => sum + round.profit, 0);
-
-    return totalProfit;
-  };
-
-  const getAverageMarketShare = () => {
-    const roundHistory = gameState?.roundHistory || [];
-    const playerRoundData = roundHistory.map(round => ({
-      marketShare: round.marketShares?.[playerName] || 0
-    }));
-
-    // Calculate average market share
-    const avgMarketShare = playerRoundData.length > 0
-      ? playerRoundData.reduce((sum, round) => sum + round.marketShare, 0) / playerRoundData.length
-      : 0;
-
-    return avgMarketShare;
-  };
-
-  const getBestRound = () => {
-    const roundHistory = gameState?.roundHistory || [];
-    const playerRoundData = roundHistory.map((round, index) => ({
-      profit: round.profits?.[playerName] || 0,
-      roundNumber: index + 1
-    }));
-
-    // Find best round (highest profit)
-    return playerRoundData.reduce((best, current) => {
-      return current.profit > best.profit ? current : best;
-    }, { profit: -Infinity, roundNumber: 0 });
-  };
-
-  if (gameState?.isEnded || (gameState?.currentRound ?? 0) > (gameState?.totalRounds ?? 0)) {
+  if (gameState?.isEnded) {
     return (
       <div style={{
         padding: '16px',
@@ -492,9 +282,9 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
               <div style={{
                 fontSize: '24px',
                 fontWeight: 600,
-                color: getTotalProfit() >= 0 ? '#2e7d32' : '#d32f2f'
+                color: 'rgba(0,0,0,0.87)'
               }}>
-                ${getTotalProfit().toFixed(2)}
+                ${gameState?.totalProfit ?? 0}
               </div>
             </div>
 
@@ -517,7 +307,7 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
                 fontWeight: 600,
                 color: 'rgba(0,0,0,0.87)'
               }}>
-                {(getAverageMarketShare() * 100).toFixed(1)}%
+                {(gameState?.averageMarketShare ?? 0) * 100}%
               </div>
             </div>
 
@@ -540,14 +330,14 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
                 fontWeight: 600,
                 color: 'rgba(0,0,0,0.87)'
               }}>
-                #{getBestRound().roundNumber}
+                #{gameState?.bestRound ?? 0}
               </div>
               <div style={{
                 fontSize: '14px',
-                color: getBestRound().profit >= 0 ? '#2e7d32' : '#d32f2f',
+                color: 'rgba(0,0,0,0.6)',
                 marginTop: '4px'
               }}>
-                ${getBestRound().profit.toFixed(2)}
+                ${gameState?.bestRoundProfit ?? 0}
               </div>
             </div>
 
@@ -648,14 +438,14 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
                 </tr>
               </thead>
               <tbody>
-                {getRivalStats().map((roundStat) => (
-                  <tr key={roundStat.round}>
+                {gameState?.roundHistory?.map((round, index) => (
+                  <tr key={index}>
                     <td style={{ 
                       padding: '12px',
                       borderBottom: '1px solid rgba(0,0,0,0.12)',
                       textAlign: 'left'
                     }}>
-                      {Math.min(roundStat.round, gameState?.totalRounds ?? 0)}
+                      {normalizeRoundNumber(index + 1)}
                     </td>
                     <td style={{ 
                       padding: '12px',
@@ -667,7 +457,7 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
                         flexDirection: 'column',
                         gap: '12px'
                       }}>
-                        {roundStat.rivals.map(rival => (
+                        {round.rivals.map(rival => (
                           <div key={rival.name} style={{
                             display: 'flex',
                             flexDirection: 'column',
@@ -716,22 +506,22 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
                       borderBottom: '1px solid rgba(0,0,0,0.12)',
                       textAlign: 'right'
                     }}>
-                      ${roundStat.playerBid}
+                      ${round.bid}
                     </td>
                     <td style={{ 
                       padding: '12px',
                       borderBottom: '1px solid rgba(0,0,0,0.12)',
                       textAlign: 'right',
-                      color: roundStat.playerProfit >= 0 ? '#2e7d32' : '#d32f2f'
+                      color: round.profit >= 0 ? '#2e7d32' : '#d32f2f'
                     }}>
-                      ${roundStat.playerProfit.toFixed(2)}
+                      ${round.profit.toFixed(2)}
                     </td>
                     <td style={{ 
                       padding: '12px',
                       borderBottom: '1px solid rgba(0,0,0,0.12)',
                       textAlign: 'right'
                     }}>
-                      {(roundStat.playerMarketShare * 100).toFixed(1)}%
+                      {(round.marketShare * 100).toFixed(1)}%
                     </td>
                   </tr>
                 ))}
@@ -869,8 +659,8 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
             fontWeight: 600,
             color: 'rgba(0,0,0,0.87)'
           }}>
-            <div>Min: ${gameState?.minBid ?? 0}</div>
-            <div>Max: ${gameState?.maxBid ?? 0}</div>
+            <div>Min: ${minBid ?? 0}</div>
+            <div>Max: ${maxBid ?? 0}</div>
             <div>Cost/Unit: ${gameState?.costPerUnit ?? 0}</div>
           </div>
 
@@ -885,8 +675,8 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
               value={bid ?? ''}
               onChange={(e) => setBid(Number(e.target.value))}
               disabled={!isInputEnabled()}
-              min={gameState?.minBid ?? 0}
-              max={gameState?.maxBid ?? 0}
+              min={minBid ?? 0}
+              max={maxBid ?? 0}
               step="0.01"
               style={{
                 width: '96%',
@@ -897,48 +687,29 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
                 marginBottom: '16px',
                 outline: 'none'
               }}
-              placeholder={`Bid (${gameState?.minBid ?? 0}-${gameState?.maxBid ?? 0})`}
+              placeholder={`Bid (${minBid ?? 0}-${maxBid ?? 0})`}
             />
 
             <button
               type="submit"
-              disabled={!canSubmitBid()}
+              disabled={!isInputEnabled() || !bid}
               style={{
                 width: '96%',
                 padding: '12px',
-                backgroundColor: canSubmitBid() ? '#1976d2' : 'rgba(0,0,0,0.12)',
-                color: canSubmitBid() ? 'white' : 'rgba(0,0,0,0.38)',
+                fontSize: '16px',
+                fontWeight: 600,
+                color: '#fff',
+                backgroundColor: !isInputEnabled() || !bid ? '#ccc' : '#1976d2',
                 border: 'none',
                 borderRadius: '4px',
-                cursor: canSubmitBid() ? 'pointer' : 'not-allowed',
-                fontSize: '16px',
-                textTransform: 'uppercase',
-                fontWeight: 500,
-                letterSpacing: '0.5px',
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
+                cursor: isInputEnabled() && bid ? 'pointer' : 'not-allowed',
+                transition: 'background-color 0.2s'
               }}
             >
-              <div style={{
-                position: 'absolute',
-                left: '12px',
-                backgroundColor: gameState?.isActive ? '#2e7d32' : '#ffc107',
-                color: gameState?.isActive ? 'white' : 'rgba(0,0,0,0.87)',
-                padding: '4px 8px',
-                borderRadius: '12px',
-                fontSize: '12px',
-                fontWeight: 500,
-                letterSpacing: '0.5px'
-              }}>
-                {gameState?.isActive ? 'Active' : 'Waiting'}
-              </div>
-              <span style={{
-                marginLeft: '48px'  // Give space for the pill on the left
-              }}>
-                {playerState.hasSubmittedBid ? 'Bid Submitted' : 'Submit Bid'}
-              </span>
+              {hasBidSubmitted ? 'Bid Submitted' :
+               isTimedOut ? 'Timed Out' :
+               !isGameActive ? 'Waiting for Round' :
+               'Submit Bid'}
             </button>
           </div>
         </div>
@@ -1015,14 +786,14 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
                 </tr>
               </thead>
               <tbody>
-                {getRivalStats().map((roundStat) => (
-                  <tr key={roundStat.round}>
+                {gameState?.roundHistory?.map((round, index) => (
+                  <tr key={index}>
                     <td style={{ 
                       padding: '12px',
                       borderBottom: '1px solid rgba(0,0,0,0.12)',
                       textAlign: 'left'
                     }}>
-                      {Math.min(roundStat.round, gameState?.totalRounds ?? 0)}
+                      {normalizeRoundNumber(index + 1)}
                     </td>
                     <td style={{ 
                       padding: '12px',
@@ -1034,7 +805,7 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
                         flexDirection: 'column',
                         gap: '12px'
                       }}>
-                        {roundStat.rivals.map(rival => (
+                        {round.rivals.map(rival => (
                           <div key={rival.name} style={{
                             display: 'flex',
                             flexDirection: 'column',
@@ -1083,22 +854,22 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({ playerName }) => {
                       borderBottom: '1px solid rgba(0,0,0,0.12)',
                       textAlign: 'right'
                     }}>
-                      ${roundStat.playerBid}
+                      ${round.bid}
                     </td>
                     <td style={{ 
                       padding: '12px',
                       borderBottom: '1px solid rgba(0,0,0,0.12)',
                       textAlign: 'right',
-                      color: roundStat.playerProfit >= 0 ? '#2e7d32' : '#d32f2f'
+                      color: round.profit >= 0 ? '#2e7d32' : '#d32f2f'
                     }}>
-                      ${roundStat.playerProfit.toFixed(2)}
+                      ${round.profit.toFixed(2)}
                     </td>
                     <td style={{ 
                       padding: '12px',
                       borderBottom: '1px solid rgba(0,0,0,0.12)',
                       textAlign: 'right'
                     }}>
-                      {(roundStat.playerMarketShare * 100).toFixed(1)}%
+                      {(round.marketShare * 100).toFixed(1)}%
                     </td>
                   </tr>
                 ))}

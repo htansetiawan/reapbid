@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { GameProvider } from './context/GameContext';
+import { SessionProvider } from './context/SessionContext';
 import PrivateRoute from './components/Auth/PrivateRoute';
 import Login from './components/Auth/Login';
 import AdminPage from './pages/AdminPage';
@@ -45,42 +46,44 @@ const Root: React.FC = () => {
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <GameProvider>
-        <Router>
-          <Routes>
-            {/* Public route */}
-            <Route path="/login" element={<Login />} />
+      <SessionProvider>
+        <GameProvider>
+          <Router>
+            <Routes>
+              {/* Public route */}
+              <Route path="/login" element={<Login />} />
 
-            {/* Protected routes */}
-            <Route
-              path="/admin"
-              element={
-                <PrivateRoute adminOnly>
-                  <ProtectedLayout>
-                    <AdminPage />
-                  </ProtectedLayout>
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/play"
-              element={
-                <PrivateRoute>
-                  <ProtectedLayout>
-                    <PlayPage />
-                  </ProtectedLayout>
-                </PrivateRoute>
-              }
-            />
+              {/* Protected routes */}
+              <Route
+                path="/admin"
+                element={
+                  <PrivateRoute adminOnly>
+                    <ProtectedLayout>
+                      <AdminPage />
+                    </ProtectedLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/play"
+                element={
+                  <PrivateRoute>
+                    <ProtectedLayout>
+                      <PlayPage />
+                    </ProtectedLayout>
+                  </PrivateRoute>
+                }
+              />
 
-            {/* Root route handler */}
-            <Route path="/" element={<Root />} />
+              {/* Root route handler */}
+              <Route path="/" element={<Root />} />
 
-            {/* Catch all other routes and redirect to root */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Router>
-      </GameProvider>
+              {/* Catch all other routes and redirect to root */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Router>
+        </GameProvider>
+      </SessionProvider>
     </AuthProvider>
   );
 };

@@ -5,6 +5,28 @@ export class LocalStorageAdapter implements StorageAdapter {
   private readonly STORAGE_KEY = 'currentGame';
   private listeners: ((gameState: GameState) => void)[] = [];
 
+  private readonly EMPTY_GAME_STATE: GameState = {
+    hasGameStarted: false,
+    isActive: false,
+    isEnded: false,
+    currentRound: 1,
+    totalRounds: 3,
+    roundTimeLimit: 60,
+    roundStartTime: null,
+    minBid: 0,
+    maxBid: 100,
+    costPerUnit: 50,
+    maxPlayers: 4,
+    players: {},
+    roundBids: {},
+    roundHistory: [],
+    rivalries: {},
+    totalProfit: 0,
+    averageMarketShare: 0,
+    bestRound: 0,
+    bestRoundProfit: 0
+  };
+
   private getInitialState(): GameState {
     return {
       hasGameStarted: false,
@@ -21,7 +43,11 @@ export class LocalStorageAdapter implements StorageAdapter {
       players: {},
       roundBids: {},
       roundHistory: [],
-      rivalries: {}
+      rivalries: {},
+      totalProfit: 0,
+      averageMarketShare: 0,
+      bestRound: 0,
+      bestRoundProfit: 0
     };
   }
 
@@ -139,6 +165,38 @@ export class LocalStorageAdapter implements StorageAdapter {
 
   async updateRivalries(rivalries: Record<string, string[]>): Promise<void> {
     await this.updateGameState({ rivalries });
+  }
+
+  // Session management methods (stub implementations for local storage)
+  async createSession(name: string): Promise<string> {
+    // Stub implementation for local storage
+    return 'local-session';
+  }
+
+  async listSessions(): Promise<any[]> {
+    throw new Error('Session management not supported in local storage adapter');
+  }
+
+  async updateSessionStatus(sessionId: string, status: 'active' | 'completed' | 'archived'): Promise<void> {
+    throw new Error('Session management not supported in local storage adapter');
+  }
+
+  async deleteSession(sessionId: string): Promise<void> {
+    // In LocalStorageAdapter, we only maintain one game state
+    // If the current game matches the sessionId, clear it
+    const currentGame = localStorage.getItem(this.STORAGE_KEY);
+    if (currentGame) {
+      const gameData = JSON.parse(currentGame);
+      if (gameData.sessionId === sessionId) {
+        localStorage.removeItem(this.STORAGE_KEY);
+        // Notify listeners with empty game state
+        this.listeners.forEach(listener => listener(this.EMPTY_GAME_STATE));
+      }
+    }
+  }
+
+  setCurrentSession(sessionId: string): void {
+    throw new Error('Session management not supported in local storage adapter');
   }
 
   private notifyListeners(gameState: GameState): void {

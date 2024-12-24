@@ -1,20 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGame } from '../../context/GameContext';
+import { useSession } from '../../context/SessionContext';
+import { SessionManager } from './SessionManager';
 import PlayerTrackingTable from './PlayerTrackingTable';
 import RivalryTable from './RivalryTable';
 import GameSummaryTable from './GameSummaryTable';
 import {
   Box,
-  Container,
-  Paper,
   Typography,
+  Paper,
+  Grid,
   TextField,
   Button,
-  Grid,
+  Stack,
   ThemeProvider,
   createTheme,
-  Stack
+  TableContainer,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  LinearProgress,
 } from '@mui/material';
+import {
+  PlayArrow as PlayArrowIcon,
+  Stop as StopIcon,
+  RestartAlt as RestartAltIcon,
+  Shuffle as ShuffleIcon
+} from '@mui/icons-material';
+
+interface PlayerStats {
+  playerId: string;
+  totalProfit: number;
+  avgMarketShare: number;
+  avgBid: number;
+  bestRound: number;
+  bestProfit: number;
+  status: string;
+  currentBid: string;
+}
 
 const theme = createTheme({
   palette: {
@@ -64,128 +89,36 @@ const theme = createTheme({
   },
 });
 
-interface PlayerStats {
-  totalProfit: number;
-  avgMarketShare: number;
-  avgBid: number;
-  bestRound: number;
-  bestProfit: number;
-  status: string;
-  currentBid: string;
-}
-
 const AdminDashboard: React.FC = () => {
-  const { gameState, startGame, startRound, endCurrentRound, endGame, resetGame, autoAssignRivals } = useGame();
-  const [totalRounds, setTotalRounds] = useState('5');
-  const [roundTimeLimit, setRoundTimeLimit] = useState('60');
-  const [minBid, setMinBid] = useState('0');
-  const [maxBid, setMaxBid] = useState('100');
-  const [costPerUnit, setCostPerUnit] = useState('50');
-  const [maxPlayers, setMaxPlayers] = useState('200');
-  const [extendTimeAmount, setExtendTimeAmount] = useState('30');
-  const [error, setError] = useState<string | null>(null);
+  const { 
+    gameState, 
+    startGame, 
+    startRound, 
+    endCurrentRound, 
+    endGame, 
+    resetGame, 
+    autoAssignRivals 
+  } = useGame();
+  const { currentSessionId, updateSessionStatus } = useSession();
+  const [playerStats, setPlayerStats] = useState<Record<string, PlayerStats>>({});
 
-  const handleStartGame = () => {
-    startGame({
-      totalRounds: parseInt(totalRounds),
-      roundTimeLimit: parseInt(roundTimeLimit),
-      minBid: parseInt(minBid),
-      maxBid: parseInt(maxBid),
-      costPerUnit: parseInt(costPerUnit),
-      maxPlayers: parseInt(maxPlayers)
-    });
-  };
+  const isGameEnded = gameState?.isEnded ?? false;
+  const isRoundActive = gameState?.roundStartTime != null;
+  const displayRound = Math.min(gameState?.currentRound ?? 0, gameState?.totalRounds ?? Infinity);
+  const playerCount = Object.keys(gameState?.players ?? {}).length;
+  const gameStatus = !gameState ? 'Not Started' : 
+                    gameState.isEnded ? 'Ended' : 
+                    !gameState.isActive ? 'Waiting' : 'In Progress';
 
-  const handleNextRound = () => {
-    if (gameState?.isActive) {
-      if ((gameState?.currentRound ?? 0) === (gameState?.totalRounds ?? 0)) {
-        endCurrentRound();
-      } else {
-        endCurrentRound();
-      }
-    } else {
-      const playerCount = Object.keys(gameState?.players || {}).length;
-      if (playerCount < 2) {
-        setError('Cannot start round: At least 2 players are required to start the game');
-        return;
-      }
-
-      const playerNames = Object.keys(gameState?.players || {});
-      const unassignedPlayers = playerNames.filter(player => {
-        const rivals = gameState?.rivalries?.[player] || [];
-        return rivals.length === 0;
-      });
-
-      if (unassignedPlayers.length > 0) {
-        setError(`Cannot start round: The following players don't have rivals assigned: ${unassignedPlayers.join(', ')}`);
-        return;
-      }
-      setError(null);
-      startRound();
-    }
-  };
-
-  const handleStartRound = () => {
-    const playerCount = Object.keys(gameState?.players || {}).length;
-    if (playerCount < 2) {
-      setError(`Cannot start round: Need at least 2 players (currently have ${playerCount})`);
-      return;
-    }
-
-    if (gameState?.isEnded) {
-      setError('Game has ended. Cannot start new round.');
-      return;
-    }
-
-    if (gameState?.isActive) {
-      setError('Cannot start new round while current round is active.');
-      return;
-    }
-
-    if ((gameState?.currentRound ?? 0) >= (gameState?.totalRounds ?? 0)) {
-      setError('Maximum rounds reached. Cannot start new round.');
-      return;
-    }
-
-    // Clear any previous errors
-    setError(null);
-
-    // Check for players without rivals only in round 1
-    if (gameState?.currentRound === 1 && !gameState?.isActive) {
-      const playersWithoutRivals = Object.keys(gameState?.players || {}).filter(
-        playerName => !(gameState?.rivalries?.[playerName]?.length ?? 0)
-      );
-
-      if (playersWithoutRivals.length > 0) {
-        setError(`The following players don't have rivals assigned: ${playersWithoutRivals.join(', ')}. Please assign rivals before starting the round.`);
-        return;
-      }
-    }
-
-    startRound();
-  };
-
-  const handleEndGame = () => {
-    if (window.confirm('Are you sure you want to end the game? This will end the current round and show final statistics to all players.')) {
-      if (gameState?.isActive) {
-        endCurrentRound();
-      }
-      endGame();
-    }
-  };
-
-  const handleAutoAssignRivals = () => {
-    if (!gameState.hasGameStarted || gameState.isEnded) return;
-    autoAssignRivals();
-  };
-
-  const calculatePlayerStats = () => {
+  const calculatePlayerStats = (): Record<string, PlayerStats> => {
+    if (!gameState?.players) return {};
+    
     const stats: Record<string, PlayerStats> = {};
-    const players = Object.entries(gameState?.players || {});
+    const players = Object.entries(gameState.players);
 
     players.forEach(([playerId, player]) => {
-      const currentBid = gameState?.roundBids?.[playerId];
-      const roundHistory = gameState?.roundHistory || [];
+      const currentBid = gameState.roundBids?.[playerId];
+      const roundHistory = gameState.roundHistory || [];
       
       // Calculate profits and market shares from round history
       const roundData = roundHistory.map(round => ({
@@ -194,15 +127,18 @@ const AdminDashboard: React.FC = () => {
         bid: round.bids?.[playerId] || 0
       }));
 
-      const totalProfit = roundData.reduce((sum: number, round) => sum + round.profit, 0);
+      const totalProfit = roundData.reduce((sum, round) => sum + round.profit, 0);
       const avgMarketShare = roundData.length > 0
-        ? roundData.reduce((sum: number, round) => sum + round.marketShare, 0) / roundData.length
+        ? roundData.reduce((sum, round) => sum + round.marketShare, 0) / roundData.length
+        : 0;
+      const avgBid = roundData.length > 0
+        ? roundData.reduce((sum, round) => sum + round.bid, 0) / roundData.length
         : 0;
 
-      // Find the best round (highest profit)
+      // Find best round (highest profit)
       let bestRound = 0;
       let bestProfit = -Infinity;
-      roundData.forEach((round, index: number) => {
+      roundData.forEach((round, index) => {
         if (round.profit > bestProfit) {
           bestProfit = round.profit;
           bestRound = index + 1;
@@ -210,9 +146,10 @@ const AdminDashboard: React.FC = () => {
       });
 
       stats[playerId] = {
+        playerId,
         totalProfit,
         avgMarketShare,
-        avgBid: currentBid || 0,
+        avgBid,
         bestRound,
         bestProfit,
         status: player.isTimedOut ? 'Timed Out' : 
@@ -224,269 +161,243 @@ const AdminDashboard: React.FC = () => {
     return stats;
   };
 
-  const isLastRound = (gameState?.currentRound ?? 0) >= (gameState?.totalRounds ?? 0);
-  const isFinalRound = (gameState?.currentRound ?? 0) === (gameState?.totalRounds ?? 0);
-  const isGameEnded = gameState?.isEnded;
+  useEffect(() => {
+    setPlayerStats(calculatePlayerStats());
+  }, [gameState?.players]);
 
-  const getDisplayRound = () => {
-    const currentRound = gameState?.currentRound ?? 0;
-    const totalRounds = gameState?.totalRounds ?? 0;
-    return Math.min(currentRound, totalRounds);
+  const handleStartGame = async () => {
+    if (!currentSessionId) {
+      console.error('No session selected');
+      return;
+    }
+
+    try {
+      await startGame({
+        totalRounds: 3,
+        roundTimeLimit: 60,
+        minBid: 0,
+        maxBid: 100,
+        costPerUnit: 50,
+        maxPlayers: 4
+      });
+      await updateSessionStatus(currentSessionId, 'active');
+    } catch (error) {
+      console.error('Error starting game:', error);
+    }
   };
 
-  const handleEndRound = async () => {
-    // No implementation
+  const handleNextRound = async () => {
+    try {
+      if (isRoundActive) {
+        // Check all players submitted bids
+        if (!Object.values(gameState?.players || {}).every(p => p.hasSubmittedBid)) {
+          console.warn('Cannot end round: Not all players have submitted bids');
+          return;
+        }
+        await endCurrentRound();
+      } else {
+        // Check round limit
+        if (gameState && gameState.currentRound > gameState.totalRounds) {
+          console.warn('Cannot start round: Exceeded total rounds');
+          return;
+        }
+        await startRound();
+      }
+    } catch (error) {
+      console.error('Error handling round:', error);
+    }
+  };
+
+  const handleEndGame = async () => {
+    try {
+      console.log('Ending game...');
+      await endGame();
+      console.log('Game ended successfully');
+    } catch (error) {
+      console.error('Error ending game:', error);
+    }
+  };
+
+  const handleAutoAssignRivals = async () => {
+    await autoAssignRivals();
+  };
+
+  const handleResetGame = async () => {
+    try {
+      await resetGame();
+    } catch (error) {
+      console.error('Error resetting game:', error);
+    }
   };
 
   return (
     <ThemeProvider theme={theme}>
-      <Box sx={{ 
-        minHeight: '100vh', 
-        backgroundColor: 'background.default', 
-        py: 4 
-      }}>
-        <Container maxWidth="xl">
-          {/* Header Section */}
-          <Paper sx={{ mb: 3 }}>
-            <Box sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: 2
-            }}>
-              <Typography variant="h4" component="h1" sx={{ fontWeight: 500 }}>
-                Admin Dashboard
-              </Typography>
-              {!gameState?.hasGameStarted && (
-                <Button
-                  variant="contained"
-                  onClick={handleStartGame}
-                  color="primary"
-                >
-                  Start Game
-                </Button>
-              )}
-            </Box>
-          </Paper>
-
-          {/* Game Configuration Form */}
-          {!gameState?.hasGameStarted && (
-            <Paper>
-              <Typography variant="h5" sx={{ mb: 3 }}>Game Configuration</Typography>
-              <Grid container spacing={3}>
-                <Grid item xs={12} sm={6} md={4}>
-                  <TextField
-                    fullWidth
-                    label="Total Rounds"
-                    type="number"
-                    value={totalRounds}
-                    onChange={(e) => setTotalRounds(e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6} md={4}>
-                  <TextField
-                    fullWidth
-                    label="Round Time Limit (seconds)"
-                    type="number"
-                    value={roundTimeLimit}
-                    onChange={(e) => setRoundTimeLimit(e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6} md={4}>
-                  <TextField
-                    fullWidth
-                    label="Minimum Bid"
-                    type="number"
-                    value={minBid}
-                    onChange={(e) => setMinBid(e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6} md={4}>
-                  <TextField
-                    fullWidth
-                    label="Maximum Bid"
-                    type="number"
-                    value={maxBid}
-                    onChange={(e) => setMaxBid(e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6} md={4}>
-                  <TextField
-                    fullWidth
-                    label="Cost Per Unit"
-                    type="number"
-                    value={costPerUnit}
-                    onChange={(e) => setCostPerUnit(e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6} md={4}>
-                  <TextField
-                    fullWidth
-                    label="Maximum Players"
-                    type="number"
-                    value={maxPlayers}
-                    onChange={(e) => setMaxPlayers(e.target.value)}
-                  />
-                </Grid>
-              </Grid>
-            </Paper>
-          )}
-
-          {/* Game Status Display */}
-          {gameState?.hasGameStarted && (
-            <Paper>
-              <Typography variant="h5" sx={{ mb: 3 }}>Game Status</Typography>
-              <Grid container spacing={3}>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="h6" gutterBottom>
-                    Round {getDisplayRound()} of {(gameState?.totalRounds ?? 0)}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {(gameState?.isActive ? 'Round in Progress' : 'Round Ended')}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="body1">
-                    <strong>Total Rounds:</strong> {(gameState?.totalRounds ?? 0)}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="body1">
-                    <strong>Round Status:</strong> {(gameState?.isActive ? 'Active' : 'Inactive')}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="body1">
-                    <strong>Players:</strong> {Object.keys(gameState?.players || {}).length} / {(gameState?.maxPlayers ?? 0)}
-                  </Typography>
-                </Grid>
-              </Grid>
-            </Paper>
-          )}
-
-          {/* Game Controls */}
-          {gameState?.hasGameStarted && (
-            <Paper>
-              {error && (
-                <Typography color="error" sx={{ mb: 2 }}>
-                  {error}
+      <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', py: 4 }}>
+        <Box sx={{ p: 3 }}>
+          <Typography variant="h4" gutterBottom>
+            Admin Dashboard
+          </Typography>
+          
+          <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <Paper sx={{ p: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Session Management
                 </Typography>
-              )}
-              <Box sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2,
-                mb: 2
-              }}>
-                <Typography variant="body1" sx={{
-                  fontSize: '16px',
-                  color: '#495057',
-                  fontWeight: 500
-                }}>
-                  {(gameState?.isEnded ? (
-                    <span style={{ color: '#dc3545' }}>Game Ended</span>
-                  ) : (
-                    <>
-                      Round {getDisplayRound()} of {(gameState?.totalRounds ?? 0)}
-                      {(isFinalRound && (
-                        <span style={{ 
-                          color: '#dc3545',
-                          marginLeft: '10px',
-                          fontSize: '14px',
-                          fontWeight: 500
-                        }}>
-                          (Final Round)
-                        </span>
-                      ))}
-                    </>
-                  ))}
-                </Typography>
-                {!gameState?.isEnded && (
-                  <Typography variant="body1" sx={{
-                    fontSize: '16px',
-                    color: (gameState?.isActive ? '#28a745' : '#6c757d'),
-                    fontWeight: 500
-                  }}>
-                    {(gameState?.isActive ? 'Round in Progress' : 'Round Ended')}
-                  </Typography>
-                )}
-              </Box>
-              <Stack direction="row" spacing={2}>
-                {gameState?.hasGameStarted && !gameState?.isEnded && (
-                  <>
-                    <Button
-                      variant="contained"
-                      onClick={handleNextRound}
-                      disabled={!gameState?.isActive && (gameState?.currentRound ?? 0) > (gameState?.totalRounds ?? 0)}
-                      color={gameState?.isActive ? "error" : "success"}
-                    >
-                      {gameState?.isActive ? 'End Round' : 'Start Round'}
-                    </Button>
-                    <Button
-                      variant="contained"
-                      color="error"
-                      onClick={handleEndGame}
-                    >
-                      End Game
-                    </Button>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      onClick={handleAutoAssignRivals}
-                      disabled={gameState?.currentRound > 1 || gameState?.isActive || isLastRound || isGameEnded}
-                    >
-                      Update Rivalries
-                    </Button>
-                  </>
-                )}
-              </Stack>
-            </Paper>
-          )}
+                <SessionManager />
+              </Paper>
+            </Grid>
 
-          {/* Player Tracking Table */}
-          {gameState?.hasGameStarted && (
-            <Paper>
-              <Typography variant="h5" sx={{ mb: 3 }}>Player Tracking</Typography>
-              <PlayerTrackingTable playerStats={calculatePlayerStats()} />
-            </Paper>
-          )}
+            {currentSessionId && (
+              <>
+                <Grid item xs={12}>
+                  <Paper sx={{ p: 3 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Typography variant="h6">
+                        Game Controls
+                      </Typography>
+                      <Typography>
+                        Status: <strong>{gameStatus}</strong>
+                      </Typography>
+                    </Box>
 
-          {/* Rivalry Table */}
-          {gameState?.hasGameStarted && (
-            <Paper sx={{
-              opacity: (gameState?.currentRound ?? 0) > 0 ? 0.7 : 1,
-              pointerEvents: (gameState?.currentRound ?? 0) > 0 ? 'none' : 'auto'
-            }}>
-              <Box sx={{ position: 'relative' }}>
-                {!(gameState?.currentRound == 1 && !gameState?.isActive) && (
-                  <Box sx={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                    color: 'white',
-                    padding: '10px 20px',
-                    borderRadius: '4px',
-                    zIndex: 1
-                  }}>
-                    Rivals cannot be modified after game starts
-                  </Box>
+                    <Stack direction="row" spacing={2}>
+                      {gameState?.isActive && !isGameEnded && (
+                        <>
+                          {!isRoundActive && gameState.currentRound <= gameState.totalRounds && (
+                            <Button
+                              variant="contained"
+                              color="primary"
+                              onClick={handleNextRound}
+                              startIcon={<PlayArrowIcon />}
+                            >
+                              Start Round {gameState.currentRound}
+                            </Button>
+                          )}
+
+                          {isRoundActive && (
+                            <Button
+                              variant="contained"
+                              color="secondary"
+                              onClick={handleNextRound}
+                              startIcon={<StopIcon />}
+                            >
+                              End Round {gameState.currentRound}
+                            </Button>
+                          )}
+
+                          {!isRoundActive && gameState.currentRound > gameState.totalRounds && (
+                            <Button
+                              variant="contained"
+                              color="error"
+                              onClick={handleEndGame}
+                              startIcon={<StopIcon />}
+                            >
+                              End Game
+                            </Button>
+                          )}
+                        </>
+                      )}
+
+                      {!gameState?.isActive && !isGameEnded && (
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          onClick={handleStartGame}
+                          startIcon={<PlayArrowIcon />}
+                        >
+                          Start Game
+                        </Button>
+                      )}
+
+                      {gameState?.isActive && !isRoundActive && !isGameEnded && (
+                        <Button
+                          variant="outlined"
+                          color="primary"
+                          onClick={handleAutoAssignRivals}
+                          startIcon={<ShuffleIcon />}
+                        >
+                          Auto-assign Rivals
+                        </Button>
+                      )}
+                    </Stack>
+
+                    {gameState && (
+                      <Box sx={{ mt: 3 }}>
+                        <Typography variant="subtitle1" gutterBottom>
+                          Game Progress: Round {displayRound} of {gameState.totalRounds}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Paper>
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Paper sx={{ p: 3 }}>
+                    <Typography variant="h6" gutterBottom>
+                      Player Statistics
+                    </Typography>
+                    <Typography variant="subtitle1" gutterBottom>
+                      Total Players: {playerCount}
+                    </Typography>
+                    <TableContainer>
+                      <Table>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Player</TableCell>
+                            <TableCell>Total Profit</TableCell>
+                            <TableCell align="right">Average Market Share</TableCell>
+                            <TableCell align="right">Average Bid</TableCell>
+                            <TableCell align="right">Best Round</TableCell>
+                            <TableCell align="right">Best Profit</TableCell>
+                            <TableCell align="right">Status</TableCell>
+                            <TableCell align="right">Current Bid</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {Object.values(playerStats).map((stats) => (
+                            <TableRow key={stats.playerId}>
+                              <TableCell>{stats.playerId}</TableCell>
+                              <TableCell>${stats.totalProfit.toFixed(2)}</TableCell>
+                              <TableCell align="right">{stats.avgMarketShare.toFixed(2)}%</TableCell>
+                              <TableCell align="right">${stats.avgBid.toFixed(2)}</TableCell>
+                              <TableCell align="right">{stats.bestRound}</TableCell>
+                              <TableCell align="right">${stats.bestProfit.toFixed(2)}</TableCell>
+                              <TableCell align="right">{stats.status}</TableCell>
+                              <TableCell align="right">{stats.currentBid}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Paper>
+                </Grid>
+
+                {currentSessionId && gameState && (
+                  <Grid item xs={12}>
+                    <Paper sx={{ p: 3 }}>
+                      <Typography variant="h6" gutterBottom>
+                        Player Tracking
+                      </Typography>
+                      <PlayerTrackingTable playerStats={playerStats} />
+                    </Paper>
+                  </Grid>
                 )}
-                <Typography variant="h5" sx={{ mb: 3 }}>Rivalries</Typography>
-                <RivalryTable />
-              </Box>
-            </Paper>
-          )}
 
-          {/* Game Summary */}
-          {gameState?.hasGameStarted && gameState?.roundHistory?.length > 0 && (
-            <Paper>
-              <GameSummaryTable />
-            </Paper>
-          )}
-        </Container>
+                {currentSessionId && gameState?.roundHistory?.length > 0 && (
+                  <Grid item xs={12}>
+                    <Paper sx={{ p: 3 }}>
+                      <Typography variant="h6" gutterBottom>
+                        Game Summary
+                      </Typography>
+                      <GameSummaryTable />
+                    </Paper>
+                  </Grid>
+                )}
+              </>
+            )}
+          </Grid>
+        </Box>
       </Box>
     </ThemeProvider>
   );

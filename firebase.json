@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": "release",
+    "public": "build",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -15,8 +15,5 @@
   },
   "database": {
     "rules": "database.rules.json"
-  },
-  "storage": {
-    "rules": "storage.rules"
   }
 }
