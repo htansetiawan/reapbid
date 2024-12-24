@@ -127,7 +127,7 @@ const HomePage: React.FC = () => {
           bgcolor: '#000'
         }}>
           <iframe
-            src="https://www.youtube.com/embed/d0m6heZbKQs"
+            src="https://www.youtube.com/embed/4nDFIlrG6MQ"
             title="ReapBid Demo"
             frameBorder="0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -328,19 +328,7 @@ const HomePage: React.FC = () => {
               gap: 1
             }}
           >
-            Powered by <Box component="span" sx={{ fontWeight: 'bold' }}>AI Kitchen</Box>, incubated at{' '}
-            <Box
-              component="img"
-              src="/mit_green.png"
-              alt="MIT"
-              sx={{
-                height: '32px',
-                width: 'auto',
-                verticalAlign: 'middle',
-                mx: 0.5
-              }}
-            />
-            {' '}and Brought to you by the one and only <Box component="span" sx={{ fontWeight: 'bold' }}>EMBA26</Box> cohort | 2024
+            Powered by AI Kitchen, incubated at MIT and brought to you by the one and only EMBA26 cohort | (c) 2024.
           </Typography>
         </Container>
       </Box>

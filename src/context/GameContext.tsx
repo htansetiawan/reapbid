@@ -340,7 +340,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       bestRound: 0,
       bestRoundProfit: 0
     };
-    await storage.updateGameState(newState);
+
+    try {
+      await storage.updateGameState(newState);
+    } catch (error) {
+      console.error('Error starting game:', error);
+      throw error;
+    }
   };
 
   const startRound = async () => {

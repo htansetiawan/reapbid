@@ -269,10 +269,17 @@ export class SessionStorageAdapter implements StorageAdapter {
         throw new Error('Session not found');
       }
 
-      // Merge states, giving priority to new state
+      // Merge states, ensuring we preserve config values
       const mergedState = {
         ...session.gameState,
         ...gameState,
+        // Always use config values for these parameters
+        costPerUnit: session.config.costPerUnit,
+        minBid: session.config.minBid,
+        maxBid: session.config.maxBid,
+        maxPlayers: session.config.maxPlayers,
+        totalRounds: session.config.totalRounds,
+        roundTimeLimit: session.config.roundTimeLimit,
         updatedAt: Date.now()
       };
 
