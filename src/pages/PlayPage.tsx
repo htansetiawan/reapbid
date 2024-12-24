@@ -114,7 +114,7 @@ const PlayPage: React.FC = () => {
         <Card>
           <CardContent>
             <Typography variant="h5" gutterBottom>
-              Welcome to RepeatBid
+              Welcome to ReapBid
             </Typography>
             <Typography variant="body1" sx={{ mb: 2 }}>
               Please select a game session to continue.

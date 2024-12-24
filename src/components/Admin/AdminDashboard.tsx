@@ -310,7 +310,7 @@ const AdminDashboard: React.FC = () => {
                         </Button>
                       )}
 
-                      {gameState?.isActive && !isRoundActive && !isGameEnded && (
+                      {gameState?.isActive && !isGameEnded && (
                         <Button
                           variant="outlined"
                           color="primary"

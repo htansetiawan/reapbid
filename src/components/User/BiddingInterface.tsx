@@ -45,14 +45,16 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
 }) => {
   const { gameState, submitBid, registerPlayer } = useGame();
   const { user } = useAuth();
-  const [bid, setBid] = useState<number | null>(null);
+  const [bidString, setBidString] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
-  const [remainingTime, setRemainingTime] = useState('--:--');
   const navigate = useNavigate();
 
   const isGameEnded = gameState?.isEnded;
   const isFinalRound = (gameState?.currentRound ?? 0) === (gameState?.totalRounds ?? 0);
+
+  // Convert bidString to number when needed
+  const bid = bidString ? Number(bidString) : null;
 
   // Add utility function for round display
   const normalizeRoundNumber = (round: number) => {
@@ -144,31 +146,6 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
     });
   }, [gameState, playerName, isRegistered]);
 
-  useEffect(() => {
-    const updateRemainingTime = () => {
-      if (!gameState?.roundStartTime || !gameState?.isActive) {
-        setRemainingTime('--:--');
-        return;
-      }
-
-      const now = Date.now();
-      const endTime = gameState.roundStartTime + ((gameState?.roundTimeLimit ?? 0) * 1000);
-      const timeLeft = Math.max(0, Math.floor((endTime - now) / 1000));
-      const minutes = Math.floor(timeLeft / 60);
-      const seconds = timeLeft % 60;
-      
-      setRemainingTime(`${minutes}:${seconds.toString().padStart(2, '0')}`);
-    };
-
-    // Update immediately
-    updateRemainingTime();
-
-    // Then update every second
-    const timer = setInterval(updateRemainingTime, 1000);
-
-    return () => clearInterval(timer);
-  }, [gameState?.roundStartTime, gameState?.roundTimeLimit, gameState?.isActive]);
-
   // Check if user is valid periodically
   useEffect(() => {
     const checkUserValidity = () => {
@@ -192,17 +169,29 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
     return isGameActive && !hasBidSubmitted && !isTimedOut;
   };
 
-  const handleBidSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!bid) {
-      setError('Please enter a bid');
-      return;
+  const handleBidChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    
+    // Allow empty string or numbers only (including decimals and leading zeros)
+    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+      setBidString(value);
+      setError(null);
+      
+      // Validate number range if it's a valid number
+      if (value !== '') {
+        const numValue = Number(value);
+        if (numValue < (minBid ?? 0)) {
+          setError(`Bid must be at least ${minBid}`);
+        } else if (numValue > (maxBid ?? Infinity)) {
+          setError(`Bid cannot exceed ${maxBid}`);
+        }
+      }
     }
+  };
 
-    if (bid < (minBid ?? 0) || bid > (maxBid ?? Infinity)) {
-      setError(`Bid must be between ${minBid} and ${maxBid}`);
-      return;
-    }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bid) return;
 
     try {
       await submitBid(playerName, bid);
@@ -406,7 +395,6 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
           backgroundColor: '#fff',
           padding: '24px',
           borderRadius: '8px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
           border: '1px solid rgba(0,0,0,0.12)'
         }}>
           <h3 style={{ 
@@ -537,44 +525,18 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
       <div style={{
         padding: '16px',
         maxWidth: '800px',
-        margin: '0 auto',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '16px'
+        margin: '0 auto'
       }}>
         <div style={{
           backgroundColor: '#fff',
           padding: '24px',
           borderRadius: '8px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
           border: '1px solid rgba(0,0,0,0.12)',
-          textAlign: 'center',
-          width: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '16px'
+          textAlign: 'center'
         }}>
-          <div style={{
-            backgroundColor: '#fff4e5',
-            padding: '12px 24px',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            <span style={{
-              color: '#ed6c02',
-              fontSize: '20px'
-            }}>⚠</span>
-            <span style={{
-              color: 'rgba(0,0,0,0.87)',
-              fontWeight: 500
-            }}>
-              Starting in {remainingTime}
-            </span>
-          </div>
+          <Typography variant="h6" sx={{ color: 'rgba(0,0,0,0.87)' }}>
+            Waiting for Game to Start
+          </Typography>
         </div>
       </div>
     );
@@ -582,12 +544,11 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
 
   return (
     <div style={{ padding: '16px', maxWidth: '100%', margin: '0 auto' }}>
-      <form onSubmit={handleBidSubmit}>
+      <form onSubmit={handleSubmit}>
         <div style={{
           backgroundColor: '#fff',
           padding: '24px',
           borderRadius: '12px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
           border: '2px solid #1976d2',
           marginBottom: '16px'
         }}>
@@ -625,13 +586,14 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
                 $
               </Typography>
               <TextField
-                type="number"
-                value={bid}
-                onChange={(e) => setBid(Number(e.target.value))}
+                value={bidString}
+                onChange={handleBidChange}
                 disabled={!isInputEnabled()}
                 error={!!error}
                 helperText={error}
                 inputProps={{
+                  inputMode: 'decimal',
+                  pattern: '[0-9]*\\.?[0-9]*',
                   min: gameState?.minBid ?? 0,
                   max: gameState?.maxBid ?? 100,
                   step: 0.01,
@@ -695,7 +657,6 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
           backgroundColor: '#fff',
           padding: '16px',
           borderRadius: '8px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
           border: '1px solid rgba(0,0,0,0.12)'
         }}>
           <h3 style={{ 

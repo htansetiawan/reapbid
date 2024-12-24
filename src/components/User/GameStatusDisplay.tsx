@@ -22,14 +22,6 @@ const GameStatusDisplay: React.FC<GameStatusDisplayProps> = ({
   const { gameState } = useGame();
   const { currentSessionId } = useSession();
 
-  const roundTimeLeft = gameState?.roundStartTime && gameState?.roundTimeLimit
-    ? Math.max(0, gameState.roundTimeLimit - (Date.now() - gameState.roundStartTime) / 1000)
-    : null;
-
-  const timeProgress = roundTimeLeft !== null && gameState?.roundTimeLimit
-    ? (roundTimeLeft / gameState.roundTimeLimit) * 100
-    : 0;
-
   return (
     <Card sx={{ mb: 3 }}>
       <CardContent>
@@ -58,18 +50,6 @@ const GameStatusDisplay: React.FC<GameStatusDisplayProps> = ({
           <Typography variant="body1">
             Round: {Math.min(gameState?.currentRound ?? 0, gameState?.totalRounds ?? 0)} / {gameState?.totalRounds ?? 0}
           </Typography>
-          {roundTimeLeft !== null && gameState?.isActive && (
-            <>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                Time Remaining: {Math.ceil(roundTimeLeft)}s
-              </Typography>
-              <LinearProgress
-                variant="determinate"
-                value={timeProgress}
-                sx={{ mt: 1, height: 8, borderRadius: 4 }}
-              />
-            </>
-          )}
         </Box>
 
         {gameState?.players?.[playerName] && (

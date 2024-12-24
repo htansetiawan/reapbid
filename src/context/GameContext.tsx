@@ -93,15 +93,39 @@ const initialGameState: GameState = {
 const DEFAULT_ALPHA = 0.1; // Default price sensitivity
 const DEFAULT_MARKET_SIZE = 1000; // Default market size
 
-const calculateMarketShare = (playerBid: number, allBids: number[], alpha: number = DEFAULT_ALPHA): number => {
-  // Calculate e^(-α * p_i) for the current player
+const calculateMarketShare = (
+  playerBid: number, 
+  rivalBids: number[], 
+  alpha: number = DEFAULT_ALPHA
+): number => {
+  // If player bid is 0, they get 0% market share
+  if (playerBid === 0) {
+    console.log('Player bid $0, market share = 0%');
+    return 0;
+  }
+  
+  // If no rivals or all rivals bid 0, player gets 100%
+  if (rivalBids.length === 0 || rivalBids.every(bid => bid === 0)) {
+    console.log('No active rivals, market share = 100%');
+    return 1;
+  }
+  
+  // Calculate shares using only non-zero bids
   const playerExp = Math.exp(-alpha * playerBid);
+  const totalExp = rivalBids.reduce(
+    (sum, bid) => sum + (bid === 0 ? 0 : Math.exp(-alpha * bid)), 
+    playerExp
+  );
   
-  // Calculate sum of e^(-α * p_j) for all players
-  const totalExp = allBids.reduce((sum, bid) => sum + Math.exp(-alpha * bid), 0);
+  const share = playerExp / totalExp;
+  console.log(`Market share calculation:
+    Player bid: $${playerBid}
+    Rival bids: ${JSON.stringify(rivalBids)}
+    Player exp: ${playerExp}
+    Total exp: ${totalExp}
+    Share: ${(share * 100).toFixed(1)}%`);
   
-  // Return the market share using the logit formula
-  return playerExp / totalExp;
+  return share;
 };
 
 const calculateProfit = (
@@ -114,7 +138,57 @@ const calculateProfit = (
   const quantitySold = marketSize * marketShare;
   
   // Calculate profit as quantity * (price - cost)
-  return quantitySold * (bid - costPerUnit);
+  const profit = quantitySold * (bid - costPerUnit);
+  console.log(`Profit calculation:
+    Bid: $${bid}
+    Market share: ${(marketShare * 100).toFixed(1)}%
+    Quantity: ${quantitySold}
+    Profit: $${profit.toFixed(2)}`);
+  
+  return profit;
+};
+
+const calculateMaxRivalProfit = (
+  rivals: string[],
+  roundBids: Record<string, number>,
+  marketShares: Record<string, number>,
+  costPerUnit: number,
+  marketSize: number = DEFAULT_MARKET_SIZE
+): number => {
+  let maxProfit = 0;
+  
+  for (const rival of rivals) {
+    const rivalBid = roundBids[rival] || 0;
+    const rivalShare = marketShares[rival] || 0;
+    
+    // Only consider rivals who participated (non-zero bid)
+    if (rivalBid > 0) {
+      const profit = calculateProfit(rivalBid, rivalShare, costPerUnit, marketSize);
+      maxProfit = Math.max(maxProfit, profit);
+    }
+  }
+  
+  return maxProfit;
+};
+
+const calculateOpportunityCost = (
+  rivals: string[],
+  roundBids: Record<string, number>,
+  marketShares: Record<string, number>,
+  costPerUnit: number,
+  marketSize: number = DEFAULT_MARKET_SIZE
+): number => {
+  // Find the maximum profit among rivals
+  let maxRivalProfit = 0;
+  
+  for (const rival of rivals) {
+    const rivalBid = roundBids[rival] || 0;
+    const rivalShare = marketShares[rival] || 0;
+    const rivalProfit = calculateProfit(rivalBid, rivalShare, costPerUnit, marketSize);
+    maxRivalProfit = Math.max(maxRivalProfit, rivalProfit);
+  }
+  
+  return maxRivalProfit;
 };
 
 const assignRoundRobin = (players: string[]): Record<string, string[]> => {
@@ -127,28 +201,34 @@ const assignRoundRobin = (players: string[]): Record<string, string[]> => {
 
   if (players.length < 2) return rivalries;
 
-  // Create round-robin pairings
-  for (let i = 0; i < players.length; i++) {
-    for (let j = i + 1; j < players.length; j++) {
-      const player1 = players[i];
-      const player2 = players[j];
-      rivalries[player1].push(player2);
-      rivalries[player2].push(player1);
-    }
+  // 1. Shuffle the players array
+  const shuffledPlayers = [...players].sort(() => Math.random() - 0.5);
+  console.log('Shuffled players:', shuffledPlayers);
+
+  // 2. Match first with last, second with second last, etc.
+  const midPoint = Math.floor(shuffledPlayers.length / 2);
+  for (let i = 0; i < midPoint; i++) {
+    const player1 = shuffledPlayers[i];
+    const player2 = shuffledPlayers[shuffledPlayers.length - 1 - i];
+    
+    rivalries[player1].push(player2);
+    rivalries[player2].push(player1);
+    console.log(`Matched ${player1} with ${player2}`);
   }
 
-  // If odd number of players, ensure each player has at least one rival
-  if (players.length % 2 === 1) {
-    const playersWithoutRivals = players.filter(player => rivalries[player].length === 0);
-    playersWithoutRivals.forEach(player => {
-      const randomRival = players.find(p => p !== player && rivalries[p].length < 2);
-      if (randomRival) {
-        rivalries[player].push(randomRival);
-        rivalries[randomRival].push(player);
-      }
-    });
+  // 3. If odd number of players, match the middle player with the first pair
+  if (shuffledPlayers.length % 2 === 1) {
+    const middlePlayer = shuffledPlayers[midPoint];
+    const firstPlayer = shuffledPlayers[0];
+    const lastPlayer = shuffledPlayers[shuffledPlayers.length - 1];
+    
+    rivalries[middlePlayer].push(firstPlayer, lastPlayer);
+    rivalries[firstPlayer].push(middlePlayer);
+    rivalries[lastPlayer].push(middlePlayer);
+    console.log(`Matched middle player ${middlePlayer} with first pair ${firstPlayer}-${lastPlayer}`);
   }
 
+  console.log('Final rivalries:', rivalries);
   return rivalries;
 };
 
@@ -377,100 +457,75 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     console.log('Round bids:', roundBids);
 
-    // Calculate market shares for each player and their rivals
+    // First pass: Calculate market shares
     allPlayers.forEach(player => {
       const rivals = gameState.rivalries?.[player] || [];
-      console.log(`Calculating market share for player ${player} with rivals:`, rivals);
-
-      if (rivals.length === 0) {
-        console.log(`No rivals for player ${player}, setting default market share`);
-        marketShares[player] = 1; // If no rivals, player gets full market
-        return;
-      }
+      console.log(`\nCalculating market share for ${player}`);
+      console.log('Rivals:', rivals);
 
       const playerBid = roundBids[player] || 0;
       const rivalBids = rivals.map(rival => roundBids[rival] || 0);
       
-      console.log('Player bid:', playerBid);
-      console.log('Rival bids:', rivalBids);
-
-      // If all bids are 0, split market share equally
-      const allBids = [playerBid, ...rivalBids];
-      if (allBids.every(bid => bid === 0)) {
-        marketShares[player] = 1 / (rivals.length + 1);
-        console.log(`All bids are 0, splitting market share equally: ${marketShares[player]}`);
+      if (playerBid === 0) {
+        console.log(`Player ${player} bid $0, setting market share to 0%`);
+        marketShares[player] = 0;
+      } else if (rivals.every(rival => roundBids[rival] === 0)) {
+        console.log(`Player ${player} is the only non-zero bidder, setting market share to 100%`);
+        marketShares[player] = 1;
       } else {
-        // Calculate market share only among rivals
-        const competingPlayers = [player, ...rivals];
-        const competingBids = competingPlayers.map(p => roundBids[p] || 0);
-        marketShares[player] = calculateMarketShare(playerBid, competingBids);
-        console.log(`Calculated market share for player ${player} among rivals:`, marketShares[player]);
+        marketShares[player] = calculateMarketShare(playerBid, rivalBids);
       }
-    });
-
-    // Normalize market shares to ensure they sum to 1 within rival groups
-    const normalizedShares: Record<string, number> = {};
-    allPlayers.forEach(player => {
-      const rivals = gameState.rivalries?.[player] || [];
-      if (rivals.length === 0) {
-        normalizedShares[player] = 1;
-        return;
-      }
-
-      const competingPlayers = [player, ...rivals];
-      const groupTotal = competingPlayers.reduce((sum, p) => sum + (marketShares[p] || 0), 0);
-      if (groupTotal > 0) {
-        normalizedShares[player] = (marketShares[player] || 0) / groupTotal;
-      } else {
-        normalizedShares[player] = 1 / competingPlayers.length;
-      }
-    });
-
-    // Replace market shares with normalized values
-    Object.assign(marketShares, normalizedShares);
-
-    console.log('Market shares after calculation:', marketShares);
-
-    // Calculate profits based on market shares
-    let totalRoundProfit = 0;
-    allPlayers.forEach(player => {
-      const playerMarketShare = marketShares[player] || 0;
-      const playerBid = roundBids[player] || 0;
-      const costPerUnit = gameState.costPerUnit || 0;
       
-      console.log(`Calculating profit for player ${player}:`, {
-        bid: playerBid,
-        marketShare: playerMarketShare,
-        costPerUnit
-      });
-
-      // Always calculate profit, even if market share or bid is 0
-      profits[player] = calculateProfit(
-        playerBid,
-        playerMarketShare,
-        costPerUnit
-      );
-      totalRoundProfit += profits[player];
-      console.log(`Calculated profit for player ${player}:`, profits[player]);
+      console.log(`Final market share for ${player}: ${(marketShares[player] * 100).toFixed(1)}%`);
     });
 
-    console.log('Final profits:', profits);
-    console.log('Total round profit:', totalRoundProfit);
+    console.log('\nMarket shares after first pass:', marketShares);
 
-    // Create round result
-    const roundResult: RoundResult = {
-      round: gameState.currentRound,
-      bids: roundBids,
-      marketShares,
-      profits,
-      timestamp: Date.now()
-    };
+    // Second pass: Calculate profits for non-zero bids
+    allPlayers.forEach(player => {
+      const playerBid = roundBids[player] || 0;
+      if (playerBid > 0) {
+        profits[player] = calculateProfit(
+          playerBid,
+          marketShares[player],
+          gameState.costPerUnit
+        );
+        console.log(`Calculated profit for ${player} (bid: $${playerBid}): $${profits[player].toFixed(2)}`);
+      }
+    });
+
+    // Third pass: Handle zero bids using maximum rival profit
+    allPlayers.forEach(player => {
+      const playerBid = roundBids[player] || 0;
+      if (playerBid === 0) {
+        const rivals = gameState.rivalries?.[player] || [];
+        // Get all rival profits (they're already calculated)
+        const rivalProfits = rivals.map(rival => {
+          const profit = profits[rival] || 0;
+          console.log(`Rival ${rival} profit: $${profit.toFixed(2)}`);
+          return profit;
+        });
+        
+        // Set profit to negative of the maximum rival profit
+        const maxRivalProfit = Math.max(...rivalProfits);
+        profits[player] = -maxRivalProfit;
+        console.log(`Player ${player} bid $0. Setting profit to negative of max rival profit: -$${maxRivalProfit.toFixed(2)}`);
+      }
+    });
+
+    console.log('\nFinal profits:', profits);
 
     // Calculate total profit (sum of all profits from all rounds for current player)
     const newTotalProfit = (gameState.totalProfit || 0) + profits[Object.keys(gameState.players)[0]] || 0;
     
     // Calculate average market share (average of all market shares from all rounds for current player)
-    const currentPlayerHistory = [...(gameState.roundHistory || []), roundResult];
+    const currentPlayerHistory = [...(gameState.roundHistory || []), {
+      round: gameState.currentRound,
+      bids: roundBids,
+      marketShares,
+      profits,
+      timestamp: Date.now()
+    }];
     const totalMarketShare = currentPlayerHistory.reduce((sum, round) => {
       const playerName = Object.keys(gameState.players)[0];
       return sum + (round.marketShares[playerName] || 0);
@@ -486,7 +541,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...gameState,
       roundStartTime: null,
       currentRound: gameState.currentRound + 1,
-      roundHistory: [...(gameState.roundHistory || []), roundResult],
+      roundHistory: [...(gameState.roundHistory || []), {
+        round: gameState.currentRound,
+        bids: roundBids,
+        marketShares,
+        profits,
+        timestamp: Date.now()
+      }],
       totalProfit: newTotalProfit,
       averageMarketShare: newAverageMarketShare,
       bestRound: isBestRound ? gameState.currentRound : (gameState.bestRound || 0),
@@ -583,18 +644,27 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const autoAssignRivals = async () => {
-    // if (gameState.isActive) {
-    //   console.warn('Rivals can only be assigned in round 1 when the round is not active');
-    //   return;
-    // }
+    if (!gameState) {
+      console.warn('Game state not initialized');
+      return;
+    }
 
-    const allPlayers = Object.keys(gameState.players);
+    // Allow rival assignment only before game starts or in round 1
+    if (gameState.currentRound > 1) {
+      console.warn('Rivals can only be assigned in round 1');
+      return;
+    }
+
+    const allPlayers = Object.keys(gameState.players || {});
     if (allPlayers.length < 2) {
       console.warn('Need at least 2 players to assign rivals');
       return;
     }
 
+    console.log('Auto-assigning rivals for players:', allPlayers);
     const newRivalries = assignRoundRobin(allPlayers);
+    console.log('New rivalries assigned:', newRivalries);
+    
     await storage.updateGameState({
       ...gameState,
       rivalries: newRivalries
