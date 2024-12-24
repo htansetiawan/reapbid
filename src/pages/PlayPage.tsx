@@ -80,13 +80,13 @@ const PlayPage: React.FC = () => {
     if (!hasJoined) {
       setGameStatus('Welcoming players');
     } else if (gameState?.isEnded) {
-      setGameStatus('Final Results');
+      setGameStatus('No More Bid');
     } else if (gameState?.isActive && gameState?.roundStartTime != null) {
-      setGameStatus('Bidding in Progress');
+      setGameStatus('Place your Bid');
     } else if (!gameState?.hasGameStarted) {
       setGameStatus('Game Starting Soon');
     } else {
-      setGameStatus('Waiting for Round');
+      setGameStatus('Round not Started');
     }
   }, [currentSessionId, hasJoined, gameState]);
 
