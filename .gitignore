@@ -2,3 +2,6 @@
 /package-lock.json
 
 .DS_Store
+
+build/
+.firebase
