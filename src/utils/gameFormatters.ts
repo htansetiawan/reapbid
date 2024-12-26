@@ -13,5 +13,5 @@ export const displayRound = (currentRound: number | undefined, totalRounds: numb
     return '-';
   }
   const displayCurrentRound = Math.min(currentRound, totalRounds);
-  return `${displayCurrentRound}/${totalRounds}`;
+  return `${displayCurrentRound} of ${totalRounds}`;
 };

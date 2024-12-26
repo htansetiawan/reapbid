@@ -111,12 +111,6 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
     });
   };
 
-  const getDisplayRound = () => {
-    const currentRound = gameState?.currentRound ?? 0;
-    const totalRounds = gameState?.totalRounds ?? 0;
-    return `${normalizeRoundNumber(currentRound)}/${totalRounds}`;
-  };
-
   // Track game state changes
   useEffect(() => {
     console.log('Game state updated:', {

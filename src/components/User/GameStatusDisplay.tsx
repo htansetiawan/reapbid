@@ -9,6 +9,7 @@ import {
 } from '@mui/material';
 import { useGame } from '../../context/GameContext';
 import { useSession } from '../../context/SessionContext';
+import { displayRound } from '../../utils/gameFormatters';
 
 interface GameStatusDisplayProps {
   playerName: string;
@@ -39,9 +40,9 @@ const GameStatusDisplay: React.FC<GameStatusDisplayProps> = ({
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Box>
             <Typography variant="h6" gutterBottom>Game Status</Typography>
-            {showRounds && (
+            {showRounds && gameState && (
               <Typography variant="body2" color="text.secondary">
-                Round {Math.min(currentRound, totalRounds)} of {totalRounds}
+                Round {displayRound(currentRound, totalRounds)}
               </Typography>
             )}
           </Box>
