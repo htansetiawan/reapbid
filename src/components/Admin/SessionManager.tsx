@@ -3,41 +3,40 @@ import {
   Box,
   Paper,
   Typography,
+  Button,
+  ButtonGroup,
+  TextField,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Button,
-  TextField,
+  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  IconButton,
   Chip,
   Tooltip,
-  ButtonGroup,
+  CircularProgress,
   Grid,
   Stepper,
   Step,
-  StepLabel
+  StepLabel,
+  FormGroup,
+  FormControlLabel,
+  Switch,
+  Divider
 } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useSession } from '../../context/SessionContext';
 import { useGame } from '../../context/GameContext';
 import { generateSessionName, getNextCategory } from '../../utils/sessionNameGenerator';
-
-interface GameConfig {
-  totalRounds: number;
-  roundTimeLimit: number;
-  minBid: number;
-  maxBid: number;
-  costPerUnit: number;
-  maxPlayers: number;
-}
+import { GameConfig, VisibilitySettings } from '../../context/GameContext';
+import { displayRound } from '../../utils/gameFormatters';
 
 const defaultConfig: GameConfig = {
   totalRounds: 3,
@@ -45,16 +44,12 @@ const defaultConfig: GameConfig = {
   minBid: 1,
   maxBid: 200,
   costPerUnit: 25,
-  maxPlayers: 10
-};
-
-// Utility function to display round numbers in a user-friendly format
-const displayRound = (currentRound: number | undefined, totalRounds: number | undefined): string => {
-  if (currentRound === undefined || totalRounds === undefined) {
-    return '-';
+  maxPlayers: 10,
+  visibilitySettings: {
+    showRounds: true,
+    showCostPerUnit: true,
+    showPriceRange: true
   }
-  const displayCurrentRound = Math.min(currentRound, totalRounds);
-  return `${displayCurrentRound}/${totalRounds}`;
 };
 
 const SessionManagerComponent: React.FC = () => {
@@ -69,7 +64,7 @@ const SessionManagerComponent: React.FC = () => {
     deleteSession,
     refreshSessions
   } = useSession();
-  const { gameState } = useGame();
+  const { gameState, startGame, resetGame } = useGame();
 
   // Local state for UI
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -80,7 +75,7 @@ const SessionManagerComponent: React.FC = () => {
   const [createError, setCreateError] = useState<string | null>(null);
 
   // Memoized values
-  const steps = useMemo(() => ['Name Your Session', 'Configure Game Settings'], []);
+  const steps = useMemo(() => ['Name Your Session', 'Configure Game Settings', 'Visibility Settings'], []);
   const sessionData = useMemo(() => {
     return sessions.map(session => ({
       ...session,
@@ -184,6 +179,11 @@ const SessionManagerComponent: React.FC = () => {
       case 1:
         return (
           <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <Typography variant="subtitle1" gutterBottom>
+                Game Rules
+              </Typography>
+            </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
@@ -270,10 +270,101 @@ const SessionManagerComponent: React.FC = () => {
             </Grid>
           </Grid>
         );
+      case 2:
+        return (
+          <Box>
+            <Typography variant="subtitle1" gutterBottom>
+              Information Visibility
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Control what information is visible to players during the game.
+            </Typography>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={config.visibilitySettings?.showRounds ?? true}
+                    onChange={(e) => {
+                      const newSettings = {
+                        showRounds: e.target.checked,
+                        showCostPerUnit: config.visibilitySettings?.showCostPerUnit ?? true,
+                        showPriceRange: config.visibilitySettings?.showPriceRange ?? true
+                      };
+                      setConfig({
+                        ...config,
+                        visibilitySettings: newSettings
+                      });
+                      // Update game if it's started
+                      if (gameState?.hasGameStarted) {
+                        startGame({
+                          ...config,
+                          visibilitySettings: newSettings
+                        });
+                      }
+                    }}
+                  />
+                }
+                label="Show Total Rounds"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={config.visibilitySettings?.showCostPerUnit ?? true}
+                    onChange={(e) => {
+                      const newSettings = {
+                        showRounds: config.visibilitySettings?.showRounds ?? true,
+                        showCostPerUnit: e.target.checked,
+                        showPriceRange: config.visibilitySettings?.showPriceRange ?? true
+                      };
+                      setConfig({
+                        ...config,
+                        visibilitySettings: newSettings
+                      });
+                      // Update game if it's started
+                      if (gameState?.hasGameStarted) {
+                        startGame({
+                          ...config,
+                          visibilitySettings: newSettings
+                        });
+                      }
+                    }}
+                  />
+                }
+                label="Show Cost Per Unit"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={config.visibilitySettings?.showPriceRange ?? true}
+                    onChange={(e) => {
+                      const newSettings = {
+                        showRounds: config.visibilitySettings?.showRounds ?? true,
+                        showCostPerUnit: config.visibilitySettings?.showCostPerUnit ?? true,
+                        showPriceRange: e.target.checked
+                      };
+                      setConfig({
+                        ...config,
+                        visibilitySettings: newSettings
+                      });
+                      // Update game if it's started
+                      if (gameState?.hasGameStarted) {
+                        startGame({
+                          ...config,
+                          visibilitySettings: newSettings
+                        });
+                      }
+                    }}
+                  />
+                }
+                label="Show Price Range (Min/Max Bid)"
+              />
+            </FormGroup>
+          </Box>
+        );
       default:
         return null;
     }
-  }, [newSessionName, config, currentCategory, createError]);
+  }, [newSessionName, config, currentCategory, createError, gameState]);
 
   return (
     <Paper sx={{ p: 2, mb: 2 }}>

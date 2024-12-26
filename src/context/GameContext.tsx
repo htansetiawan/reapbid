@@ -34,13 +34,20 @@ export interface GameState {
   roundBids: Record<string, number>;
   roundHistory: RoundResult[];
   rivalries: Record<string, string[]>;
-  totalProfit: number;  // Total profit across all rounds
-  averageMarketShare: number;  // Average market share across all rounds
-  bestRound: number;  // Round number with highest profit
-  bestRoundProfit: number;  // Profit from the best round
+  totalProfit: number;
+  averageMarketShare: number;
+  bestRound: number;
+  bestRoundProfit: number;
+  visibilitySettings?: VisibilitySettings;
 }
 
-interface GameConfig {
+export interface VisibilitySettings {
+  showRounds: boolean;
+  showCostPerUnit: boolean;
+  showPriceRange: boolean;
+}
+
+export interface GameConfig {
   totalRounds: number;
   roundTimeLimit: number;
   minBid: number;
@@ -49,6 +56,7 @@ interface GameConfig {
   maxPlayers: number;
   alpha?: number; // Price sensitivity parameter for logit model
   marketSize?: number; // Total market size Q
+  visibilitySettings?: VisibilitySettings; // Optional settings for what information to show players
 }
 
 interface GameContextType {
@@ -87,7 +95,12 @@ const initialGameState: GameState = {
   totalProfit: 0,
   averageMarketShare: 0,
   bestRound: 0,
-  bestRoundProfit: 0
+  bestRoundProfit: 0,
+  visibilitySettings: {
+    showRounds: true,
+    showCostPerUnit: true,
+    showPriceRange: true
+  }
 };
 
 const DEFAULT_ALPHA = 0.1; // Default price sensitivity
@@ -277,7 +290,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             players: storedState.players || {},
             roundBids: storedState.roundBids || {},
             roundHistory: storedState.roundHistory || [],
-            rivalries: storedState.rivalries || {}
+            rivalries: storedState.rivalries || {},
+            visibilitySettings: storedState.visibilitySettings || {
+              showRounds: true,
+              showCostPerUnit: true,
+              showPriceRange: true
+            }
           };
           setGameState(normalizedState);
         } else {
@@ -307,7 +325,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         players: newState.players || {},
         roundBids: newState.roundBids || {},
         roundHistory: newState.roundHistory || [],
-        rivalries: newState.rivalries || {}
+        rivalries: newState.rivalries || {},
+        visibilitySettings: newState.visibilitySettings || {
+          showRounds: true,
+          showCostPerUnit: true,
+          showPriceRange: true
+        }
       };
       setGameState(normalizedState);
     });
@@ -338,7 +361,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       totalProfit: 0,
       averageMarketShare: 0,
       bestRound: 0,
-      bestRoundProfit: 0
+      bestRoundProfit: 0,
+      // Only include visibilitySettings if they exist in config
+      ...(config.visibilitySettings && {
+        visibilitySettings: {
+          showRounds: config.visibilitySettings.showRounds,
+          showCostPerUnit: config.visibilitySettings.showCostPerUnit,
+          showPriceRange: config.visibilitySettings.showPriceRange
+        }
+      })
     };
 
     try {

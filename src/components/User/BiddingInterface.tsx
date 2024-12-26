@@ -53,6 +53,11 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
   const isGameEnded = gameState?.isEnded;
   const isFinalRound = (gameState?.currentRound ?? 0) === (gameState?.totalRounds ?? 0);
 
+  // Get visibility settings from gameState, use legacy behavior if not present
+  const showRounds = gameState?.visibilitySettings?.showRounds ?? true;
+  const showCostPerUnit = gameState?.visibilitySettings?.showCostPerUnit ?? true;
+  const showPriceRange = gameState?.visibilitySettings?.showPriceRange ?? true;
+
   // Convert bidString to number when needed
   const bid = bidString ? Number(bidString) : null;
 
@@ -489,16 +494,16 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
                       whiteSpace: 'pre-line'
                     }}>
                       {round.rivalStats.map((rival, index) => (
-                        <div key={index}>
+                          <div key={index}>
                           {rival.name}:
-                          {'\n'}
+                            {'\n'}
                           Bid: {rival.bid.toFixed(2)}
-                          {'\n'}
+                            {'\n'}
                           Profit: {rival.profit.toFixed(2)}
-                          {'\n'}
+                            {'\n'}
                           %: {(rival.marketShare * 100).toFixed(1)}%
                           {index < round.rivalStats.length - 1 ? '\n\n' : ''}
-                        </div>
+                          </div>
                       ))}
                     </td>
                     <td style={{ 
@@ -598,51 +603,55 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
               >
                 $
               </Typography>
-              <TextField
-                value={bidString}
-                onChange={handleBidChange}
-                disabled={!isInputEnabled()}
-                error={!!error}
-                helperText={error}
-                inputProps={{
-                  inputMode: 'decimal',
-                  pattern: '[0-9]*\\.?[0-9]*',
-                  min: gameState?.minBid ?? 0,
-                  max: gameState?.maxBid ?? 100,
-                  step: 0.01,
-                  style: {
-                    fontSize: '32px',
-                    textAlign: 'center',
-                    padding: '16px 16px 16px 36px',
-                    fontWeight: 500,
-                    caretColor: '#1976d2'
+            <TextField
+              value={bidString}
+              onChange={handleBidChange}
+              disabled={!isInputEnabled()}
+              error={!!error}
+              helperText={error}
+              inputProps={{
+                inputMode: 'decimal',
+                pattern: '[0-9]*\\.?[0-9]*',
+                min: gameState?.minBid ?? 0,
+                max: gameState?.maxBid ?? 100,
+                step: 0.01,
+                style: {
+                  fontSize: '32px',
+                  textAlign: 'center',
+                  padding: '16px 16px 16px 36px',
+                  fontWeight: 500,
+                  caretColor: '#1976d2'
+                }
+              }}
+              sx={{
+                width: '100%',
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '12px',
+                  backgroundColor: '#f8f9fa',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    backgroundColor: '#e9ecef'
+                  },
+                  '&.Mui-focused': {
+                    backgroundColor: '#fff',
+                    boxShadow: '0 0 0 2px #1976d2'
                   }
-                }}
-                sx={{
-                  width: '100%',
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '12px',
-                    backgroundColor: '#f8f9fa',
-                    transition: 'all 0.2s',
-                    '&:hover': {
-                      backgroundColor: '#e9ecef'
-                    },
-                    '&.Mui-focused': {
-                      backgroundColor: '#fff',
-                      boxShadow: '0 0 0 2px #1976d2'
-                    }
-                  }
-                }}
-              />
+                }
+              }}
+            />
             </Box>
 
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
-              Bid Range: ${gameState?.minBid ?? 0} - ${gameState?.maxBid ?? 100}
-            </Typography>
+              {showPriceRange && (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+                  Bid Range: ${gameState?.minBid ?? 0} - ${gameState?.maxBid ?? 100}
+                </Typography>
+              )}
 
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
-              Cost Per Unit: ${gameState?.costPerUnit ?? 25}
-            </Typography>
+              {showCostPerUnit && (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+                  Cost Per Unit: ${gameState?.costPerUnit ?? 25}
+                </Typography>
+              )}
 
             <Button
               type="submit"
@@ -754,16 +763,16 @@ const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
                       whiteSpace: 'pre-line'
                     }}>
                       {round.rivalStats.map((rival, index) => (
-                        <div key={index}>
+                          <div key={index}>
                           {rival.name}:
-                          {'\n'}
+                            {'\n'}
                           Bid: {rival.bid.toFixed(2)}
-                          {'\n'}
+                            {'\n'}
                           Profit: {rival.profit.toFixed(2)}
-                          {'\n'}
+                            {'\n'}
                           %: {(rival.marketShare * 100).toFixed(1)}%
                           {index < round.rivalStats.length - 1 ? '\n\n' : ''}
-                        </div>
+                          </div>
                       ))}
                     </td>
                     <td style={{ 

@@ -22,6 +22,9 @@ const GameStatusDisplay: React.FC<GameStatusDisplayProps> = ({
   const { gameState } = useGame();
   const { currentSessionId } = useSession();
 
+  // Get visibility settings from gameState, use legacy behavior if not present
+  const showRounds = gameState?.visibilitySettings?.showRounds ?? true;
+
   // Check if current round exceeds total rounds
   const currentRound = gameState?.currentRound ?? 0;
   const totalRounds = gameState?.totalRounds ?? 0;
@@ -36,9 +39,11 @@ const GameStatusDisplay: React.FC<GameStatusDisplayProps> = ({
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Box>
             <Typography variant="h6" gutterBottom>Game Status</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Round {Math.min(currentRound, totalRounds)} of {totalRounds}
-            </Typography>
+            {showRounds && (
+              <Typography variant="body2" color="text.secondary">
+                Round {Math.min(currentRound, totalRounds)} of {totalRounds}
+              </Typography>
+            )}
           </Box>
           <Chip
             label={displayStatus}

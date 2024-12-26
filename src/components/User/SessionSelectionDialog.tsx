@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import { Refresh as RefreshIcon } from '@mui/icons-material';
 import { useSession } from '../../context/SessionContext';
+import { displayRound } from '../../utils/gameFormatters';
 
 interface SessionSelectionDialogProps {
   open: boolean;
@@ -123,7 +124,7 @@ const SessionSelectionDialog: React.FC<SessionSelectionDialogProps> = ({
                           <br />
                           {session.currentRound !== undefined && session.totalRounds !== undefined && (
                             <Typography component="span" variant="body2">
-                              Round: {session.currentRound + 1} / {session.totalRounds}
+                              Round: {displayRound(session.currentRound, session.totalRounds)}
                             </Typography>
                           )}
                         </React.Fragment>

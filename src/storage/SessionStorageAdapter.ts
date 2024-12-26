@@ -28,6 +28,11 @@ export interface GameConfig {
   maxBid: number;
   costPerUnit: number;
   maxPlayers: number;
+  visibilitySettings?: {
+    showRounds: boolean;
+    showCostPerUnit: boolean;
+    showPriceRange: boolean;
+  };
 }
 
 export interface Session {
