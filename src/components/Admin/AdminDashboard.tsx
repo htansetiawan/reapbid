@@ -22,6 +22,8 @@ import {
   TableCell,
   TableBody,
   LinearProgress,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import {
   PlayArrow as PlayArrowIcon,
@@ -29,6 +31,7 @@ import {
   RestartAlt as RestartAltIcon,
   Shuffle as ShuffleIcon
 } from '@mui/icons-material';
+import { toggleAutopilot } from '../../firebase/functions';
 
 interface PlayerStats {
   playerId: string;
@@ -101,6 +104,8 @@ const AdminDashboard: React.FC = () => {
   } = useGame();
   const { currentSessionId, updateSessionStatus } = useSession();
   const [playerStats, setPlayerStats] = useState<Record<string, PlayerStats>>({});
+  const [isAutopilotEnabled, setIsAutopilotEnabled] = useState(false);
+  const [autopilotError, setAutopilotError] = useState<string | null>(null);
 
   const isGameEnded = gameState?.isEnded ?? false;
   const isRoundActive = gameState?.roundStartTime != null;
@@ -165,6 +170,12 @@ const AdminDashboard: React.FC = () => {
     setPlayerStats(calculatePlayerStats());
   }, [gameState?.players]);
 
+  useEffect(() => {
+    if (gameState?.autopilot?.enabled !== undefined) {
+      setIsAutopilotEnabled(gameState.autopilot.enabled);
+    }
+  }, [gameState?.autopilot?.enabled]);
+
   const handleStartGame = async () => {
     if (!currentSessionId) {
       console.error('No session selected');
@@ -227,6 +238,18 @@ const AdminDashboard: React.FC = () => {
       await resetGame();
     } catch (error) {
       console.error('Error resetting game:', error);
+    }
+  };
+
+  const handleToggleAutopilot = async () => {
+    if (!currentSessionId) return;
+
+    try {
+      setAutopilotError(null);
+      await toggleAutopilot({ gameId: currentSessionId, enabled: !isAutopilotEnabled });
+    } catch (error) {
+      console.error('Error toggling autopilot:', error);
+      setAutopilotError('Failed to toggle autopilot. Please try again.');
     }
   };
 
@@ -319,6 +342,38 @@ const AdminDashboard: React.FC = () => {
                         </Button>
                       )}
                     </Stack>
+
+                    <Box sx={{ mt: 3 }}>
+                      <Typography variant="h6" gutterBottom>
+                        Autopilot Control
+                      </Typography>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={isAutopilotEnabled}
+                            onChange={handleToggleAutopilot}
+                            disabled={!gameState?.isActive || gameState?.isEnded}
+                          />
+                        }
+                        label={
+                          <Box>
+                            <Typography>
+                              Autopilot {isAutopilotEnabled ? 'Enabled' : 'Disabled'}
+                            </Typography>
+                            {gameState?.autopilot?.lastUpdateTime && (
+                              <Typography variant="caption" color="textSecondary">
+                                Last Update: {new Date(gameState.autopilot.lastUpdateTime?? 0).toLocaleString()}
+                              </Typography>
+                            )}
+                          </Box>
+                        }
+                      />
+                      {autopilotError && (
+                        <Typography color="error" variant="caption">
+                          {autopilotError}
+                        </Typography>
+                      )}
+                    </Box>
 
                     {gameState && (
                       <Box sx={{ mt: 3 }}>

@@ -1,6 +1,9 @@
 import { StorageAdapter } from './StorageAdapter';
 import { GameState, Player, RoundResult } from '../context/GameContext';
 
+const DEFAULT_ALPHA = 0.5;
+const DEFAULT_MARKET_SIZE = 1000;
+
 export class LocalStorageAdapter implements StorageAdapter {
   private readonly STORAGE_KEY = 'currentGame';
   private listeners: ((gameState: GameState) => void)[] = [];
@@ -24,7 +27,13 @@ export class LocalStorageAdapter implements StorageAdapter {
     totalProfit: 0,
     averageMarketShare: 0,
     bestRound: 0,
-    bestRoundProfit: 0
+    bestRoundProfit: 0,
+    autopilot: {
+      enabled: false,
+      lastUpdateTime: null
+    },
+    alpha: DEFAULT_ALPHA,
+    marketSize: DEFAULT_MARKET_SIZE
   };
 
   private getInitialState(): GameState {
@@ -47,7 +56,13 @@ export class LocalStorageAdapter implements StorageAdapter {
       totalProfit: 0,
       averageMarketShare: 0,
       bestRound: 0,
-      bestRoundProfit: 0
+      bestRoundProfit: 0,
+      autopilot: {
+        enabled: false,
+        lastUpdateTime: null
+      },
+      alpha: DEFAULT_ALPHA,
+      marketSize: DEFAULT_MARKET_SIZE
     };
   }
 

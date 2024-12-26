@@ -1,51 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { StorageFactory, StorageType } from '../storage/StorageFactory';
-import { useSession } from './SessionContext';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { StorageFactory, StorageType } from "../storage/StorageFactory";
+import { useSession } from "./SessionContext";
+import { GameState, Player, RoundResult, VisibilitySettings } from "../types/game";
 
-export interface Player {
-  name: string;
-  currentBid: number | null;
-  hasSubmittedBid: boolean;
-  lastBidTime: number | null;
-  isTimedOut?: boolean;
-}
-
-export interface RoundResult {
-  round: number;
-  bids: Record<string, number>;
-  marketShares: Record<string, number>;
-  profits: Record<string, number>;
-  timestamp: number;
-}
-
-export interface GameState {
-  hasGameStarted: boolean;
-  isActive: boolean;
-  isEnded: boolean;
-  currentRound: number;
-  totalRounds: number;
-  roundTimeLimit: number;
-  roundStartTime: number | null;
-  minBid: number;
-  maxBid: number;
-  costPerUnit: number;
-  maxPlayers: number;
-  players: Record<string, Player>;
-  roundBids: Record<string, number>;
-  roundHistory: RoundResult[];
-  rivalries: Record<string, string[]>;
-  totalProfit: number;
-  averageMarketShare: number;
-  bestRound: number;
-  bestRoundProfit: number;
-  visibilitySettings?: VisibilitySettings;
-}
-
-export interface VisibilitySettings {
-  showRounds: boolean;
-  showCostPerUnit: boolean;
-  showPriceRange: boolean;
-}
+// Re-export types for backward compatibility
+export type { GameState, Player, RoundResult, VisibilitySettings };
 
 export interface GameConfig {
   totalRounds: number;

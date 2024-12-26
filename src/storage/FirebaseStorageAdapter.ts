@@ -1,4 +1,4 @@
-import { ref, get, set, onValue, off, update, Database } from 'firebase/database';
+import { ref, get, set, onValue, off, update, runTransaction, Database } from 'firebase/database';
 import { database } from '../firebase/config';
 import { StorageAdapter } from './StorageAdapter';
 import { GameState, Player } from '../context/GameContext';
@@ -42,7 +42,27 @@ export class FirebaseStorageAdapter implements StorageAdapter {
       throw new Error('No session selected');
     }
     try {
-      await update(this.currentSessionRef, { gameState });
+      // If updating autopilot, use a transaction to ensure atomic update
+      if (gameState.autopilot !== undefined) {
+        const gameStateRef = ref(this.database, `games/${this.currentSessionRef.key}/gameState`);
+        await runTransaction(gameStateRef, (currentState) => {
+          if (currentState === null) {
+            return gameState;
+          }
+          return {
+            ...currentState,
+            ...gameState,
+            autopilot: {
+              ...currentState.autopilot,
+              ...gameState.autopilot
+            }
+          };
+        });
+      } else {
+        await update(this.currentSessionRef, {
+          gameState: gameState
+        });
+      }
     } catch (error) {
       console.error('Error updating game state:', error);
       throw error;
