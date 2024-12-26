@@ -1,16 +1,53 @@
-# ReapBid
+# ReapBid: The Repeated Bertrand Competition Simulator
 
-In a standard (one-shot) Bertrand competition, firms with the same cost structure race to the bottom by setting prices equal to marginal cost, p=c. However, when competition is repeated over many rounds (or infinitely), the outcome can shift. Firms can potentially sustain higher prices (tacit collusion) by threatening to punish those who undercut.
+ReapBid is an innovative simulation platform designed to explore the dynamics of **repeated Bertrand competition**. It provides a hands-on tool for understanding how market behaviors evolve when competition extends over many rounds, moving beyond the standard race-to-the-bottom pricing.
 
-ReapBit demonstrates this dynamic by running simulations of repeated interactions under various assumptions (discount factors, number of players, strategies, punishment rules, etc.). It’s designed for researchers, students, and anyone curious about game-theoretic models of competition.
+### Why ReapBid?
 
-## Quickstart
+In traditional one-shot Bertrand competition, firms often undercut each other, driving prices down to marginal cost. But when competition repeats, a whole new world of strategies emerges—**tacit collusion**, punishment mechanisms, and cooperative equilibria become possible. ReapBid empowers users to explore these fascinating dynamics with:
 
-1. Clone the repository: `git clone https://github.com/ReapBid/ReapBid.git`
-2. Install dependencies: `npm install`
-3. Run the app: `npm start`
-4. Go to http://localhost:3000
+- **Customizable Simulations:** Configure variables like discount factors, number of players, strategies, and punishment rules.
+- **Game-Theoretic Insights:** Visualize how firms adapt strategies to maximize profits over repeated interactions.
+- **User-Friendly Interface:** Designed for researchers, educators, and anyone curious about economic and behavioral strategies.
 
-## TODOs
+---
 
-- [LookAndFeel]: Game Ended
+### Features
+
+- Simulate repeated interactions between firms under various market conditions.
+- Customize the number of firms, cost structures, and punishment strategies.
+- Explore the impact of long-term strategies and cooperation incentives.
+- Analyze results with built-in graphs and metrics.
+
+---
+
+### Getting Started
+
+1. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/yourusername/reapbid.git
+   cd reapbid
+
+2. Install Dependencies:
+
+```bash
+npm install
+```
+
+3. Run the Application:
+
+```bash
+npm start
+```
+
+Access the platform locally at http://localhost:3000.
+
+### Contributing
+We welcome contributions! Please open an issue or submit a pull request for any improvements, bug fixes, or feature requests.
+
+### Deployment
+ReapBid is ready for deployment on Firebase Hosting. Simply follow the deployment guide.
+
+### Credits
+
+Powered by AI Kitchen, incubated at MIT, and Brought to you by the one and only EMBA26 cohort | © 2024.
