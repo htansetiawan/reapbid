@@ -9,13 +9,14 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material';
-import { LogoutOutlined } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { LogoutOutlined, LeaderboardOutlined } from '@mui/icons-material';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const Navbar: React.FC = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -54,12 +55,14 @@ const Navbar: React.FC = () => {
               color: 'primary.main',
               letterSpacing: '-0.5px',
               flexGrow: 1,
+              cursor: 'pointer'
             }}
+            onClick={() => navigate('/home')}
           >
             ReapBid
           </Typography>
 
-          {/* User Email */}
+          {/* Navigation Links */}
           {user && (
             <Box
               sx={{
@@ -68,6 +71,21 @@ const Navbar: React.FC = () => {
                 gap: 2,
               }}
             >
+              <Button
+                variant={location.pathname === '/leaderboard' ? 'contained' : 'outlined'}
+                color="primary"
+                onClick={() => navigate('/leaderboard')}
+                startIcon={<LeaderboardOutlined />}
+                sx={{
+                  textTransform: 'none',
+                  '&:hover': {
+                    bgcolor: location.pathname === '/leaderboard' ? 'primary.dark' : 'background.paper',
+                  },
+                }}
+              >
+                {isMobile ? '' : 'Leaderboard'}
+              </Button>
+
               <Typography
                 variant="body2"
                 sx={{

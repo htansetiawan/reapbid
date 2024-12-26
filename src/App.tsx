@@ -8,6 +8,7 @@ import Login from './components/Auth/Login';
 import AdminPage from './pages/AdminPage';
 import PlayPage from './pages/PlayPage';
 import HomePage from './pages/HomePage';
+import LeaderboardPage from './pages/LeaderboardPage';
 import Navbar from './components/Navigation/Navbar';
 import { useAuth } from './context/AuthContext';
 
@@ -59,6 +60,13 @@ const App: React.FC = () => {
                 <PrivateRoute>
                   <ProtectedLayout>
                     <PlayPage />
+                  </ProtectedLayout>
+                </PrivateRoute>
+              } />
+              <Route path="/leaderboard" element={
+                <PrivateRoute>
+                  <ProtectedLayout>
+                    <LeaderboardPage />
                   </ProtectedLayout>
                 </PrivateRoute>
               } />
