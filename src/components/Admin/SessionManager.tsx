@@ -48,6 +48,15 @@ const defaultConfig: GameConfig = {
   maxPlayers: 10
 };
 
+// Utility function to display round numbers in a user-friendly format
+const displayRound = (currentRound: number | undefined, totalRounds: number | undefined): string => {
+  if (currentRound === undefined || totalRounds === undefined) {
+    return '-';
+  }
+  const displayCurrentRound = Math.min(currentRound, totalRounds);
+  return `${displayCurrentRound}/${totalRounds}`;
+};
+
 const SessionManagerComponent: React.FC = () => {
   const {
     sessions,
@@ -325,9 +334,7 @@ const SessionManagerComponent: React.FC = () => {
                 </TableCell>
                 <TableCell>{session.totalPlayers || 0}</TableCell>
                 <TableCell>
-                  {session.currentRound !== undefined && session.totalRounds !== undefined
-                    ? `${session.currentRound}/${session.totalRounds}`
-                    : '-'}
+                  {displayRound(session.currentRound, session.totalRounds)}
                 </TableCell>
                 <TableCell>{formatDate(session.createdAt)}</TableCell>
                 <TableCell>{formatDate(session.updatedAt)}</TableCell>
